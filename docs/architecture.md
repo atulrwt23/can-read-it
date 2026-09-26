@@ -75,8 +75,8 @@ com.canreadit.<module>.internal/   ← entities, repositories, controllers, adap
 
 | Port (interface) | Module | Protocol | Local adapter target | Beta target |
 |---|---|---|---|---|
-| `ObjectStorage` | media | S3 API | MinIO | Cloudflare R2 |
-| `MediaUrls` | media | none (URL building) | MinIO public URL | `cdn.` R2 custom domain |
+| `ObjectStorage` | media | S3 API | SeaweedFS | Cloudflare R2 |
+| `MediaUrls` | media | none (URL building) | SeaweedFS public URL | `cdn.` R2 custom domain |
 | `EmailSender` | notifications | SMTP | Mailpit | Resend |
 | `IdTokenVerifier` | identity | OIDC + JWKS | Google/Apple (test clients) | Google/Apple |
 | `BotChallengeVerifier` | identity | HTTPS siteverify | no-op | Cloudflare Turnstile |
@@ -179,4 +179,4 @@ Scale in this order, and only when metrics say so:
    - media processing first (CPU-heavy)
    - notification fan-out second (bursty)
    - Modulith events become messages on a broker; their shapes don't change
-5. **Search** moves from `pg_trgm` and FTS to a dedicated engine behind the `discovery` search service (phase 4).
+5. **Search** moves from `pg_trgm` and FTS in `catalog` to a dedicated engine: a `discovery` read model fed by catalog events, behind the same endpoint (phase 4).

@@ -61,22 +61,24 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 - Spring Boot 4.x, Gradle with **Kotlin DSL** and a version catalog (`gradle/libs.versions.toml`), a single Gradle project (modules are packages, enforced by Spring Modulith)
 - Spring Web MVC with virtual threads enabled (`spring.threads.virtual.enabled=true`)
 - Spring Security 7 (lambda DSL only), OAuth2 resource server for our own JWTs, Nimbus JOSE for signing
-- Spring Data JPA (Hibernate), PostgreSQL 18, Flyway migrations
+- Spring Data JPA (Hibernate) for aggregates the app writes, `JdbcClient` for read models and list queries (keyset pagination, trigram search), PostgreSQL 18, Flyway migrations. Step 1 is read-only, so JPA is added with the first write path
 - Spring Data Redis (cache, counters, rate limits, token denylist), Bucket4j for rate limiting
 - Spring Modulith (module verification, event publication registry, `@ApplicationModuleListener`)
 - springdoc-openapi (OpenAPI spec at `/v3/api-docs`, used to generate the web client types)
-- AWS SDK v2 S3 client (works against MinIO locally and Cloudflare R2 in the beta)
+- AWS SDK v2 S3 client (works against SeaweedFS locally and Cloudflare R2 in the beta)
 - Spring Mail (`JavaMailSender`) for SMTP. No email-vendor SDKs
 - Testing: JUnit 5, AssertJ, Testcontainers (Postgres, Redis), Spring Modulith test support
 - Formatting: Spotless with palantir-java-format
 - Notes: Boot 4 splits auto-configuration into smaller modules, so add the specific starters you need. Boot 4 defaults to Jackson 3; do not mix in Jackson 2 unless a library forces it. No Lombok: use records for DTOs and plain classes for entities.
 
 ### Web (`web/`)
-- Next.js 16.x (App Router), React, TypeScript in strict mode, pnpm. Always use the **latest patch release**: Next.js ships regular security patches.
-- Tailwind CSS v4 with design tokens as CSS variables (section 8), shadcn/ui primitives restyled with those tokens
+- Next.js 16.x (App Router), React, TypeScript in strict mode, pnpm (version pinned in `packageManager`). Always use the **latest patch release** of Next.js: it ships regular security patches.
+- TypeScript is pinned to the latest **6.x**, not 7.x: TypeScript 7 (the native port) has no JavaScript compiler API yet, which Next.js type-checking and `openapi-typescript` need. Revisit when they support it.
+- Tailwind CSS v4 with design tokens as CSS variables (section 8). UI primitives follow shadcn/ui conventions (copied-in, token-styled components in `web/src/components`); step 1 needed only a few, written by hand. Add shadcn components through its CLI when a richer primitive (dialog, dropdown) is needed
 - No web fonts: system sans stack for UI and titles, system serif stack for novel reading (fast first paint, nothing to download)
 - API types generated from the backend OpenAPI spec (`openapi-typescript` + `openapi-fetch`)
 - Biome for lint and format, Vitest for unit tests (Playwright later)
+- Next.js 16 changed several APIs (for example `proxy.ts` replaced middleware, and `params`/`searchParams` are promises). Its version-matched docs ship in `web/node_modules/next/dist/docs/`; check them before relying on memory.
 - Images come from our CDN with known dimensions, so `next/image` optimization is off (`unoptimized` or a pass-through loader). The web container needs no image-processing native dependencies.
 
 ### Local infrastructure (`infra/local/docker-compose.yml`)
@@ -84,7 +86,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 |---|---|---|
 | postgres (18) | primary database | 5432 |
 | redis | cache, counters, rate limits | 6379 |
-| minio (+ one-shot bucket init) | S3-compatible storage for covers and pages | 9000 API, 9001 console |
+| seaweedfs (+ one-shot bucket init) | S3-compatible storage for covers and pages ([ADR 0009](docs/decisions/0009-seaweedfs-for-local-object-storage.md)) | 8333 S3 API |
 | mailpit | catches outgoing email (codes, password resets) | 1025 SMTP, 8025 UI |
 
 ---
@@ -204,7 +206,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 - updates `series.last_published_at`
 - publishes `ChapterPublished`, which drives notifications and cache revalidation
 
-**Search (phase 1):** `pg_trgm` GIN indexes on `title` and `alt_titles` (these work for Korean and other CJK titles), plus Postgres full-text search on `synopsis`. The query lives behind a `discovery` search service so it can be moved to a dedicated engine later.
+**Search (phase 1):** `pg_trgm` GIN indexes on `title` and `alt_titles` (these work for Korean and other CJK titles), plus Postgres full-text search on `synopsis`. For now `catalog` runs these queries over its own tables (`GET /api/v1/series?q=`). When search moves to a dedicated engine (phase 4), it becomes a `discovery` read model fed by catalog events, behind the same endpoint.
 
 **media**
 - `assets`:
@@ -306,6 +308,8 @@ POST   /me/history/import                                   → merges guest his
 - **Public pages are identical for every visitor.** They never read auth cookies during render, so the CDN and Next.js can cache them. Anything personal (library state, "continue reading", the account menu) loads in client components after hydration. Catalog pages use time-based revalidation plus on-demand revalidation triggered by `ChapterPublished`.
 - The browser only calls same-origin `/api/*`. In local development, a Next.js rewrite proxies `/api/*` to `http://localhost:8080`. In production, the edge routes `/api/*` to the backend (section 9). Server components call the backend through an internal base URL (`API_INTERNAL_URL`); only personalised server routes forward cookies.
 - **Token refresh (step 2):** Server Components cannot set cookies. When the access token has expired, `proxy.ts` (Next 16's replacement for middleware) calls `/api/v1/auth/refresh` and sets the new cookies before rendering. Route handlers and server actions may also refresh.
+- `next build` runs without a backend (CI, image builds). Pages prerendered at build time must tolerate an unreachable API (`getHome` returns `null` during the build phase and the page shows a placeholder until the first revalidation). Series and chapter pages are generated on first request (`generateStaticParams` returns `[]`).
+- The theme bootstrap script is the first child of `<body>`, never in `<head>`: React hydrates `<head>` as soon as cached app chunks run, which can happen before the parser reaches an inline script there (production-only hydration error #418).
 - Chapter pages render with the explicit `width` and `height` returned by the API, so the layout never shifts. The first two pages load eagerly; the rest are lazy-loaded.
 - Guests keep history and reading progress in localStorage. After sign-in, the app calls `POST /api/v1/me/history/import` once, then clears the local copy.
 - **Page structure (the design spec; there is no prototype file):**
@@ -323,7 +327,7 @@ POST   /me/history/import                                   → merges guest his
   - **Manhwa reader:** a continuous vertical strip of pages with no gaps. A top and bottom reader bar (series title, chapter picker, previous/next) hides on scroll down and shows on scroll up or tap. There is an end-of-chapter panel with a next-chapter button.
   - **Novel reader:** a centred reading column with a max width of about 70ch, in a serif stack, and the same auto-hiding bar. A settings sheet offers text size, line spacing, font (serif/sans), and page color (light, sepia, dark), saved in localStorage.
   - **Auth pages:** a single centred card with the method choices (Google, Apple, email code, password).
-- Build components from these tokens and the shadcn/ui primitives. Covers and banners use the real cover assets. Empty states and placeholders use flat token colors, never decorative art.
+- Build components from these tokens and the local primitives. Covers and banners use the real cover assets. Empty states and placeholders use flat token colors, never decorative art.
 - **Design tokens (Bulma-inspired, adapted for a reading app):**
 
   | Token | Light | Dark |
@@ -352,7 +356,7 @@ cd backend && ./gradlew bootRun --args='--spring.profiles.active=local'   # http
 cd web && pnpm install && pnpm gen:api && pnpm dev                       # http://localhost:3000
 ```
 
-- The `local` profile seeds about 16 invented placeholder series (manhwa and novels, several genres and statuses, varied update times) plus fake view stats for the rankings. The seeder generates simple placeholder page images and covers (for example flat-color PNGs drawn with the JDK's `ImageIO`, showing the series color and page number), uploads them to MinIO, and records their dimensions. SVG is not used, because the media pipeline never serves SVG.
+- The `local` profile seeds about 16 invented placeholder series (manhwa and novels, several genres and statuses, varied update times) plus fake view stats for the rankings. The seeder generates simple placeholder page images and covers (for example flat-color PNGs drawn with the JDK's `ImageIO`, showing the series color and page number), uploads them to SeaweedFS, and records their dimensions. SVG is not used, because the media pipeline never serves SVG.
 - Outgoing email goes to Mailpit at http://localhost:8025.
 
 ### Beta hosting (free tier)
@@ -410,23 +414,23 @@ Phase 4: iOS then Android apps, recommendations, search upgrade, multi-language 
 
 ### Definition of done for step 1 (skeleton + catalog read slice)
 - [x] Architecture, database and deployment decisions recorded (`docs/architecture.md`, ADRs 0001–0008)
-- [ ] Monorepo layout from section 4, with root `README.md`, `.gitignore`, `.editorconfig`
-- [ ] `infra/local` compose file with postgres 18, redis, minio (+ bucket init) and mailpit, plus `.env.example`
-- [ ] Backend builds on Java 25 / Boot 4.x, with all module packages present (stubs where noted) and a passing `ModularityTests`
-- [ ] `shared`: UUIDv7 ID generation, Problem Details error handling, request-ID logging, `@ConfigurationProperties` records, security config that permits public catalog `GET`s and denies everything else by default
-- [ ] Flyway migrations for the `catalog`, `media`, `discovery` and `modulith` schemas from sections 5–6, and for the `identity` tables from section 7 (tables only; the auth flows are step 2)
-- [ ] `media.MediaUrls` and the `ObjectStorage` S3 adapter (public URLs only for now)
-- [ ] `local` profile seeder: placeholder series, editions, chapters, generated cover and page images in MinIO, novel chapter bodies, and fake view stats
-- [ ] Catalog and discovery read APIs:
+- [x] Monorepo layout from section 4, with root `README.md`, `.gitignore`, `.editorconfig`
+- [x] `infra/local` compose file with postgres 18, redis, seaweedfs (+ bucket init) and mailpit, plus `.env.example`
+- [x] Backend builds on Java 25 / Boot 4.x, with all module packages present (stubs where noted) and a passing `ModularityTests`
+- [x] `shared`: UUIDv7 ID generation, Problem Details error handling, request-ID logging, `@ConfigurationProperties` records, security config that permits public catalog `GET`s and denies everything else by default
+- [x] Flyway migrations for the `catalog`, `media`, `discovery` and `modulith` schemas from sections 5–6, and for the `identity` tables from section 7 (tables only; the auth flows are step 2)
+- [x] `media.MediaUrls` and the `ObjectStorage` S3 adapter (public URLs only for now)
+- [x] `local` profile seeder: placeholder series, editions, chapters, generated cover and page images in SeaweedFS, novel chapter bodies, and fake view stats
+- [x] Catalog and discovery read APIs:
   - `GET /api/v1/home` (featured, latest updates, popular for today, week and all time)
   - `GET /api/v1/series` (q, type, status, genres, sort, cursor, limit)
   - `GET /api/v1/series/{slug}` (301 for old slugs)
   - `GET /api/v1/series/{slug}/chapters`
   - `GET /api/v1/series/{slug}/chapters/{number}` (pages with URL, width and height, or the novel body, plus previous and next chapter numbers)
   - `GET /api/v1/genres`
-- [ ] OpenAPI served at `/v3/api-docs`, and web types generated from it
-- [ ] Web: home, browse, series and reader pages rendering real API data, following the section 8 page structure and tokens, with light and dark themes and responsive layouts
-- [ ] CI workflow green
+- [x] OpenAPI served at `/v3/api-docs`, and web types generated from it
+- [x] Web: home, browse, series and reader pages rendering real API data, following the section 8 page structure and tokens, with light and dark themes and responsive layouts
+- [x] CI workflow green
 
 ---
 

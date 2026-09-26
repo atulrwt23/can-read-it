@@ -1,0 +1,11 @@
+logging:
+  structured:
+    format:
+      console: ecs
+
+# The web client generates its types from a local/CI build, so prod needs no API docs.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

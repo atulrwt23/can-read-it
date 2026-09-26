@@ -1,0 +1,54 @@
+# Shared configuration. Environment-specific values come from environment variables
+# (documented in infra/local/.env.example); the `local` profile supplies dev defaults.
+spring:
+  application:
+    name: canreadit
+  autoconfigure:
+    # No username/password users: sign-in is built in the identity module (step 2).
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  flyway:
+    # History table lives in the first schema (public); module schemas are created on demand.
+    schemas: public,identity,catalog,media,discovery,modulith
+    create-schemas: true
+  modulith:
+    events:
+      jdbc:
+        schema: modulith
+        schema-initialization:
+          enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  paths-to-match: /api/**
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+
+app:
+  brand:
+    name: CanReadIt
+  media:
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL}
+    s3:
+      endpoint: ${S3_ENDPOINT:}
+      region: ${S3_REGION:us-east-1}
+      bucket: ${S3_BUCKET}
+      access-key: ${S3_ACCESS_KEY}
+      secret-key: ${S3_SECRET_KEY}
