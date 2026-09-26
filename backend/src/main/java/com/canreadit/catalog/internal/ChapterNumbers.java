@@ -2,11 +2,13 @@ package com.canreadit.catalog.internal;
 
 import com.canreadit.shared.ApiException;
 import java.math.BigDecimal;
+import java.util.regex.Pattern;
 
 /** Chapter numbers are numeric(8,2): up to 999999.99, shown without trailing zeros. */
 final class ChapterNumbers {
 
-    private static final BigDecimal MAX = new BigDecimal("999999.99");
+    /** Plain decimals only: no signs, exponents or more than two fraction digits. */
+    private static final Pattern VALID = Pattern.compile("\\d{1,6}(\\.\\d{1,2})?");
 
     private ChapterNumbers() {}
 
@@ -15,22 +17,9 @@ final class ChapterNumbers {
     }
 
     static BigDecimal parse(String raw) {
-        BigDecimal number;
-        try {
-            number = new BigDecimal(raw);
-        } catch (NumberFormatException e) {
-            throw invalid(raw);
+        if (!VALID.matcher(raw).matches()) {
+            throw ApiException.badRequest("invalid_chapter_number", "'" + raw + "' is not a valid chapter number.");
         }
-        if (raw.length() > 12
-                || number.signum() < 0
-                || number.compareTo(MAX) > 0
-                || number.stripTrailingZeros().scale() > 2) {
-            throw invalid(raw);
-        }
-        return number;
-    }
-
-    private static ApiException invalid(String raw) {
-        return ApiException.badRequest("invalid_chapter_number", "'" + raw + "' is not a valid chapter number.");
+        return new BigDecimal(raw);
     }
 }
