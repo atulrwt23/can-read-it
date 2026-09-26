@@ -152,7 +152,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 - Flyway migrations live in `src/main/resources/db/migration`, named `V<yyyyMMddHHmm>__<module>_<description>.sql`.
 - Never edit a migration that has been merged. Add a new one.
 - Spring Modulith's `event_publication` table lives in a `modulith` schema and is created by a Flyway migration (Modulith's own schema initialization stays off).
-- Dev-only seed data runs only in the `local` profile (a seeder component, or migrations under `db/seed`). It is never part of the prod migration path.
+- Placeholder seed data runs only in the `local` profile (development) and the `demo` profile (the placeholder beta, which is `noindex`), through seeder components. It is never part of the migration path.
 - Use `citext` for emails, `numeric(8,2)` for chapter numbers, `jsonb` only for genuinely schemaless data (for example image variants).
 - Extensions: `citext` and `pg_trgm`, created by the first migration.
 
