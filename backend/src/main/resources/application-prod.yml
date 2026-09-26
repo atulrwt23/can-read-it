@@ -1,0 +1,8 @@
+logging:
+  structured:
+    format:
+      console: ecs
+
+springdoc:
+  swagger-ui:
+    enabled: false

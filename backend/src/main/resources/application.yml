@@ -1,0 +1,43 @@
+# Shared configuration. Environment-specific values come from environment variables
+# (documented in infra/local/.env.example); the `local` profile supplies dev defaults.
+spring:
+  application:
+    name: canreadit
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DB_URL}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  flyway:
+    # History table lives in the first schema (public); module schemas are created on demand.
+    schemas: public,identity,catalog,media,discovery,modulith
+    create-schemas: true
+  modulith:
+    events:
+      jdbc:
+        schema: modulith
+        schema-initialization:
+          enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+springdoc:
+  paths-to-match: /api/**
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+
+app:
+  brand:
+    name: CanReadIt

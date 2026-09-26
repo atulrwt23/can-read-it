@@ -1,0 +1,6 @@
+# Local development defaults matching infra/local/docker-compose.yml.
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/canreadit}
+    username: ${POSTGRES_USER:canreadit}
+    password: ${POSTGRES_PASSWORD:canreadit}

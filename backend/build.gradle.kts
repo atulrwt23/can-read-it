@@ -21,7 +21,7 @@ repositories {
 
 // Integration tests (Testcontainers, full Spring context) live in their own source set
 // so `./gradlew test` stays fast and Docker-free.
-val integrationTest: SourceSet by sourceSets.creating {
+val integrationTest: SourceSet = sourceSets.create("integrationTest") {
     compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
     runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
 }
