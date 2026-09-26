@@ -430,7 +430,7 @@ Phase 4: iOS then Android apps, recommendations, search upgrade, multi-language 
   - `GET /api/v1/genres`
 - [x] OpenAPI served at `/v3/api-docs`, and web types generated from it
 - [x] Web: home, browse, series and reader pages rendering real API data, following the section 8 page structure and tokens, with light and dark themes and responsive layouts
-- [ ] CI workflow green
+- [x] CI workflow green
 
 ---
 
