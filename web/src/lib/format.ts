@@ -42,3 +42,13 @@ const LABELS: Record<string, string> = {
 export function label(value: string): string {
   return LABELS[value] ?? value;
 }
+
+/** A date that renders identically on server and client (fixed locale and time zone). */
+export function calendarDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
