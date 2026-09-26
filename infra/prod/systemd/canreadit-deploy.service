@@ -1,0 +1,10 @@
+[Unit]
+Description=CanReadIt: deploy origin/main when its images are published
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/canreadit/repo/infra/prod/deploy.sh
+TimeoutStartSec=20min
