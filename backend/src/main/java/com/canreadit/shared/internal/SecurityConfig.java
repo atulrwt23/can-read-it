@@ -50,6 +50,7 @@ class SecurityConfig {
     private static void writeProblem(HttpServletResponse response, int status, String code) throws IOException {
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
         // Fixed strings only, so hand-written JSON is safe here.
         response.getWriter()
                 .write("{\"type\":\"%s\",\"title\":\"%s\",\"status\":%d,\"code\":\"%s\"}"

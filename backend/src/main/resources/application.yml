@@ -3,6 +3,9 @@
 spring:
   application:
     name: canreadit
+  autoconfigure:
+    # No username/password users: sign-in is built in the identity module (step 2).
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   threads:
     virtual:
       enabled: true
