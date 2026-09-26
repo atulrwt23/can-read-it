@@ -143,8 +143,8 @@ Losing Redis never loses committed data. At worst, rankings lose up to one roll-
 | Object storage | Cloudflare R2 | S3 or any S3 API: change the endpoint and keys |
 | Edge | Cloudflare free + Tunnel | any CDN or load balancer that routes `/api/*` |
 | Email | Resend over SMTP | any SMTP relay: change `spring.mail.*` |
-| Registry / CI | GHCR + GitHub Actions | any OCI registry |
-| Secrets | SOPS + age (`infra/prod/.env.prod.sops`) | a cloud secrets manager injected as env vars |
+| Registry / CI | GHCR + GitHub Actions; pull-based deploys by a timer on the VM ([deploy.md](deploy.md)) | any OCI registry and deploy tool |
+| Secrets | env file on the VM only (`/opt/canreadit/.env`) | a cloud secrets manager injected as env vars |
 | Monitoring | uptime check (free) + optional Grafana Cloud free via Alloy | any Prometheus or OTLP backend |
 
 VM memory budget (12 GB):

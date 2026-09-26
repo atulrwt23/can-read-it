@@ -103,7 +103,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 │  └─ decisions/                 ← short ADRs: NNNN-title.md
 ├─ infra/
 │  ├─ local/                     ← docker-compose.yml, .env.example
-│  └─ prod/                      ← beta compose file, cloudflared config, deploy + backup scripts, SOPS-encrypted env
+│  └─ prod/                      ← beta compose file, pull-based deploy, backup and bootstrap scripts, systemd timers (docs/deploy.md)
 ├─ backend/
 │  ├─ build.gradle.kts, settings.gradle.kts, gradle/libs.versions.toml
 │  └─ src/main/java/com/canreadit/
@@ -166,7 +166,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 
 ### Configuration
 - `application.yml` plus environment variables. Profiles: `local`, `test`, `prod`.
-- No secrets in the repo, except SOPS-encrypted files under `infra/prod/`. `infra/local/.env.example` documents every variable.
+- No secrets in the repo, not even encrypted ones. `infra/local/.env.example` and `infra/prod/.env.example` document every variable; production secrets live only on the VM (docs/deploy.md).
 - All app-specific properties live under `app.*` and are bound to `@ConfigurationProperties` records (for example `app.media.public-base-url` or `app.auth.access-token-ttl`).
 
 ### Observability
@@ -365,18 +365,19 @@ All of it costs $0. Every piece can be swapped by configuration.
 - **Compute:** one Oracle Cloud Always Free Ampere (Arm) VM, now limited to 2 OCPU / 12 GB. It runs `api`, `web`, `postgres`, `redis` and `cloudflared` with Docker Compose (`infra/prod/`). **Build every image for `linux/arm64` as well as `linux/amd64`.**
   - Memory budget: Postgres about 3 GB (`shared_buffers` about 2 GB), JVM about 2.5 GB (`-XX:MaxRAMPercentage`), Next.js about 1 GB, Redis 256 MB with `maxmemory` set, and the rest left as headroom and page cache.
   - Optional: upgrade the Oracle account to Pay-As-You-Go with a $0 budget alert. Always Free resources stay free, and the VM is no longer reclaimed for being idle.
-- **Edge:** the Cloudflare free plan for DNS, CDN, basic firewall and Turnstile. A Cloudflare Tunnel keeps the VM's inbound ports closed. Tunnel ingress rules do the routing, so there is no reverse proxy on the VM:
-  - `canreadit.<tld>/api/*` → `http://api:8080`
-  - `canreadit.<tld>/*` → `http://web:3000`
-  - `cdn.canreadit.<tld>` → R2 custom domain (image traffic never touches the VM)
+- **Edge:** the Cloudflare free plan. A Cloudflare Tunnel keeps the VM's inbound ports closed, so there is no reverse proxy on the VM ([ADR 0010](docs/decisions/0010-pull-based-deploys-and-quick-tunnel.md)):
+  - **Now (no domain, $0):** a quick tunnel at a random `*.trycloudflare.com` address forwards everything to `web`, and Next.js proxies `/api/*` to `api`. Images are served from the R2 bucket's `r2.dev` address.
+  - **With a domain:** a named tunnel routes `<domain>/api/*` → `http://api:8080` and `<domain>/*` → `http://web:3000`, and `cdn.<domain>` is an R2 custom domain. Switching is configuration only.
 - **Images:** Cloudflare R2 through the S3 API. The free tier covers 10 GB of storage, 1M write and 10M read operations a month, with no egress fees. Budget storage accordingly: one WebP page variant, and no originals kept after processing (`TODO(product):` revisit if creators need originals back).
 - **Email:** Resend over SMTP (`spring.mail.*`) with the domain verified (SPF, DKIM). The free tier is enough for the beta.
-- **Images registry and deploys:**
-  - GitHub Actions builds the backend jar once, then uses `docker buildx` to produce multi-arch images and pushes them to GHCR.
-  - Deploy is `docker compose pull && docker compose up -d` on the VM over SSH through Cloudflare Access (no open SSH port), using `infra/prod/deploy.sh`.
-  - Prune old image tags to stay within the free registry storage.
-- **Secrets:** `infra/prod/.env.prod.sops` is encrypted with SOPS + age and committed. The age key exists only on the VM and in a GitHub Actions secret.
-- **Backups:** a nightly `pg_dump` to a private R2 bucket (RPO 24h), with a restore drill before the beta opens. WAL-based point-in-time recovery can be added later without app changes.
+- **Images registry and deploys** ([docs/deploy.md](docs/deploy.md)):
+  - On every green push to `main`, GitHub Actions builds the api and web images natively on amd64 and arm64 runners and publishes them to GHCR as `:<sha>`.
+  - Deploys are **pull-based**: a systemd timer on the VM runs `infra/prod/deploy.sh` every 2 minutes. It deploys `origin/main` once its images exist, waits for health checks, and rolls back (remembering the failed SHA) if they fail. Operators can pin a release.
+  - The VM checks out the same commit as the images, so `infra/prod/compose.yml` and the scripts always match the release.
+  - Migrations run at API start and rollbacks don't undo them: every migration must keep the previous release working (expand, then contract later).
+- **Secrets:** only in `/opt/canreadit/.env` on the VM (chmod 600), with a copy in the owner's password manager. CI never holds production secrets, because it doesn't deploy.
+- **Demo content:** the beta runs the `demo` profile (placeholder series seeded into an empty database) and is `noindex` until the web image is built with `ALLOW_INDEXING=true`.
+- **Backups:** `infra/prod/backup.sh` runs nightly (03:17 UTC) and uploads a `pg_dump` to a private R2 bucket (RPO 24h; an R2 lifecycle rule keeps 30 days). Restore steps are in docs/deploy.md; rehearse them before the beta opens. WAL-based point-in-time recovery can be added later without app changes.
 - **Monitoring:** a free external uptime check on `/actuator/health`. Optionally, Grafana Cloud's free tier, fed by Grafana Alloy scraping Prometheus metrics and shipping logs. It is optional and swappable because only open formats leave the box.
 - **Everything is defined in code:** the compose file, deploy scripts and Cloudflare configuration, so the whole stack can move to paid hosting in an hour.
 - If Docker is not available in the current environment (for example in a remote Claude Code session), still write the compose file and the Testcontainers tests, verify what you can (`./gradlew compileJava test -x integrationTest`, `pnpm typecheck`, `pnpm build`), and list in the PR description which checks could not run.
@@ -392,7 +393,7 @@ All of it costs $0. Every piece can be swapped by configuration.
   - web: `pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test && pnpm build`
 - Conventional Commits (`feat(catalog): ...`, `fix(identity): ...`). Keep PRs small and focused on one module where possible.
 - **Security baseline:**
-  - no secrets in code (SOPS-encrypted files excepted)
+  - no secrets in code
   - uploads validated by magic bytes and size, with metadata stripped, and SVG rejected
   - user uploads are never served from the API origin
   - CORS stays closed, because the browser talks same-origin

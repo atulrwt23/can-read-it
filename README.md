@@ -7,6 +7,7 @@ A reading platform for manhwa (vertical-scroll webtoons) and web novels. Readers
 - [`docs/architecture.md`](docs/architecture.md): system design, module map, data ownership, deployment
 - [`docs/decisions/`](docs/decisions/): architecture decision records
 - [`docs/modules/`](docs/modules/): one design doc per backend module
+- [`docs/deploy.md`](docs/deploy.md): how the $0 beta is hosted and deployed, with diagrams, setup and operations
 
 ## Stack
 - **Backend** (`backend/`): Java 25, Spring Boot 4 (Spring Modulith monolith), PostgreSQL 18, Flyway

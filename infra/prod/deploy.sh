@@ -9,7 +9,11 @@
 #    remember the failed SHA, so the timer does not retry it every 2 minutes (the next commit
 #    on main is tried as usual).
 #
-# Usage: deploy.sh [--force] [<sha>]   (--force redeploys even if deployed or marked failed)
+# Usage:
+#   deploy.sh                 deploy origin/main if needed (what the timer runs)
+#   deploy.sh --force [<sha>] redeploy even if already deployed or marked failed
+#   deploy.sh --pin <sha>     deploy <sha> and hold it: the timer stops following main
+#   deploy.sh --unpin         follow origin/main again (and deploy it)
 #
 # Migrations run when the api starts, and a rollback does not undo them: every migration must
 # keep the previous release working (expand, then contract in a later release).
@@ -27,7 +31,17 @@ main() {
   exec 9>"$STATE/deploy.lock"
   flock -n 9 || { log "another deploy is running"; exit 0; }
 
-  if [[ "${1:-}" == "--force" ]]; then force=true; shift; fi
+  local pin=false
+  case "${1:-}" in
+    --force) force=true; shift ;;
+    --pin)
+      [[ -n "${2:-}" ]] || { log "usage: deploy.sh --pin <sha>"; exit 2; }
+      force=true; pin=true; shift ;;
+    --unpin) rm -f "$STATE/pinned"; force=true; log "unpinned: following origin/main again"; shift ;;
+  esac
+  if [[ -f "$STATE/pinned" && "$force" == false ]]; then
+    exit 0 # pinned by an operator (deploy.sh --unpin to resume)
+  fi
   git -C "$REPO" fetch --quiet origin main
   target=$(git -C "$REPO" rev-parse "${1:-origin/main}")
   local current
@@ -48,7 +62,12 @@ main() {
   log "deploying ${target:0:7} (currently ${current:0:7})"
   if release "$target"; then
     echo "$target" > "$STATE/deployed"
-    log "deployed ${target:0:7}"
+    if $pin; then
+      echo "$target" > "$STATE/pinned"
+      log "deployed and pinned ${target:0:7}; the timer will not replace it (deploy.sh --unpin)"
+    else
+      log "deployed ${target:0:7}"
+    fi
     docker image prune --force --filter "until=168h" > /dev/null
     return 0
   fi
