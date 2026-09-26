@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* Theme: data-theme on <html> is set before paint by the script in layout.tsx. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Design tokens (CLAUDE.md section 8). Never put white text on --primary. */
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --raised: #f0f2f5;
+  --line: #dbdbdb;
+  --text: #363636;
+  --muted: #6b6b6b;
+  --primary: #00d1b2;
+  --on-primary: #07332c;
+  --primary-text: #007a70;
+  --link: #485fc7;
+  --star: #9a6b00;
+  --success: #257953;
+  --card-shadow: 0 0.5em 1em -0.125em rgba(10, 10, 10, 0.1), 0 0 0 1px rgba(10, 10, 10, 0.02);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #14161a;
+  --surface: #1c1f24;
+  --raised: #262a31;
+  --line: #343a43;
+  --text: #e6e8eb;
+  --muted: #a0a7b1;
+  --primary-text: #00d1b2;
+  --link: #94a6f2;
+  --star: #ffe08a;
+  --success: #7bddb0;
+  --card-shadow: 0 0.5em 1em -0.125em rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  color-scheme: dark;
+}
+
+/* Without JavaScript, follow the system preference. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #14161a;
+    --surface: #1c1f24;
+    --raised: #262a31;
+    --line: #343a43;
+    --text: #e6e8eb;
+    --muted: #a0a7b1;
+    --primary-text: #00d1b2;
+    --link: #94a6f2;
+    --star: #ffe08a;
+    --success: #7bddb0;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-primary-text: var(--primary-text);
+  --color-link: var(--link);
+  --color-star: var(--star);
+  --color-success: var(--success);
+  --shadow-card: var(--card-shadow);
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  /* Type scale: 48 / 40 / 32 / 24 / 20 / 16 */
+  --text-4xl: 2.5rem;
+  --text-3xl: 2rem;
+}
+
+@layer base {
+  html {
+    background: var(--bg);
+    color: var(--text);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary-text);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
