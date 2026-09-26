@@ -1,0 +1,30 @@
+# OS / editors
+.DS_Store
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+
+# Env files (examples are committed)
+.env
+.env.*
+!.env.example
+!.env.*.sops
+
+# Backend
+backend/.gradle/
+backend/build/
+backend/bin/
+backend/out/
+.kotlin/
+
+# Web
+web/node_modules/
+web/.next/
+web/out/
+web/coverage/
+web/next-env.d.ts
+*.tsbuildinfo
+
+# Logs
+*.log
