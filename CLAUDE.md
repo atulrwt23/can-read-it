@@ -204,7 +204,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 - updates `series.last_published_at`
 - publishes `ChapterPublished`, which drives notifications and cache revalidation
 
-**Search (phase 1):** `pg_trgm` GIN indexes on `title` and `alt_titles` (these work for Korean and other CJK titles), plus Postgres full-text search on `synopsis`. The query lives behind a `discovery` search service so it can be moved to a dedicated engine later.
+**Search (phase 1):** `pg_trgm` GIN indexes on `title` and `alt_titles` (these work for Korean and other CJK titles), plus Postgres full-text search on `synopsis`. For now `catalog` runs these queries over its own tables (`GET /api/v1/series?q=`). When search moves to a dedicated engine (phase 4), it becomes a `discovery` read model fed by catalog events, behind the same endpoint.
 
 **media**
 - `assets`:

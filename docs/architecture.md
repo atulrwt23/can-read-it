@@ -179,4 +179,4 @@ Scale in this order, and only when metrics say so:
    - media processing first (CPU-heavy)
    - notification fan-out second (bursty)
    - Modulith events become messages on a broker; their shapes don't change
-5. **Search** moves from `pg_trgm` and FTS to a dedicated engine behind the `discovery` search service (phase 4).
+5. **Search** moves from `pg_trgm` and FTS in `catalog` to a dedicated engine: a `discovery` read model fed by catalog events, behind the same endpoint (phase 4).
