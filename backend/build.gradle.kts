@@ -65,6 +65,11 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
+// Only the executable boot jar is needed.
+tasks.jar {
+    enabled = false
+}
+
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     options.compilerArgs.addAll(listOf("-Xlint:all,-processing,-serial", "-Werror"))
