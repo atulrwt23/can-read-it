@@ -166,7 +166,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 
 ### Configuration
 - `application.yml` plus environment variables. Profiles: `local`, `test`, `prod`.
-- No secrets in the repo, not even encrypted ones. `infra/local/.env.example` and `infra/prod/.env.example` document every variable; production secrets live only on the VM (docs/deploy.md).
+- No secrets in the repo, not even encrypted ones. `infra/local/.env.example` and `infra/prod/.env.example` document every variable; production settings live in Oracle Cloud Vault (docs/deploy.md).
 - All app-specific properties live under `app.*` and are bound to `@ConfigurationProperties` records (for example `app.media.public-base-url` or `app.auth.access-token-ttl`).
 
 ### Observability
@@ -375,7 +375,7 @@ All of it costs $0. Every piece can be swapped by configuration.
   - Deploys are **pull-based**: a systemd timer on the VM runs `infra/prod/deploy.sh` every 2 minutes. It deploys `origin/main` once its images exist, waits for health checks, and rolls back (remembering the failed SHA) if they fail. Operators can pin a release.
   - The VM checks out the same commit as the images, so `infra/prod/compose.yml` and the scripts always match the release.
   - Migrations run at API start and rollbacks don't undo them: every migration must keep the previous release working (expand, then contract later).
-- **Secrets:** only in `/opt/canreadit/.env` on the VM (chmod 600), with a copy in the owner's password manager. CI never holds production secrets, because it doesn't deploy.
+- **Secrets:** all production settings live in one **Oracle Cloud Vault** secret, read by the VM with its own identity (instance principal), so no credential is stored on the VM ([ADR 0011](docs/decisions/0011-production-settings-in-oracle-cloud-vault.md)). `infra/prod/lib.sh` fetches it into memory (`/run/canreadit/env`) on every deploy or backup run; `SECRETS_PROVIDER=file` (`/opt/canreadit/.env`) remains as a fallback. CI never holds production secrets, because it doesn't deploy.
 - **Demo content:** the beta runs the `demo` profile (placeholder series seeded into an empty database) and is `noindex` until the web image is built with `ALLOW_INDEXING=true`.
 - **Backups:** `infra/prod/backup.sh` runs nightly (03:17 UTC) and uploads a `pg_dump` to a private R2 bucket (RPO 24h; an R2 lifecycle rule keeps 30 days). Restore steps are in docs/deploy.md; rehearse them before the beta opens. WAL-based point-in-time recovery can be added later without app changes.
 - **Monitoring:** a free external uptime check on `/actuator/health`. Optionally, Grafana Cloud's free tier, fed by Grafana Alloy scraping Prometheus metrics and shipping logs. It is optional and swappable because only open formats leave the box.
