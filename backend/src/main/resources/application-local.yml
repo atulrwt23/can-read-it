@@ -4,3 +4,12 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/canreadit}
     username: ${POSTGRES_USER:canreadit}
     password: ${POSTGRES_PASSWORD:canreadit}
+
+app:
+  media:
+    public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:8333/canreadit-media}
+    s3:
+      endpoint: ${S3_ENDPOINT:http://localhost:8333}
+      bucket: ${S3_BUCKET:canreadit-media}
+      access-key: ${S3_ACCESS_KEY:canreadit}
+      secret-key: ${S3_SECRET_KEY:canreadit-secret}

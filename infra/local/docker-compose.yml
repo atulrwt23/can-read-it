@@ -5,7 +5,7 @@ name: canreadit
 
 services:
   postgres:
-    image: postgres:18-alpine
+    image: postgres:18.6-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-canreadit}
       POSTGRES_USER: ${POSTGRES_USER:-canreadit}
@@ -21,7 +21,7 @@ services:
       retries: 20
 
   redis:
-    image: redis:8-alpine
+    image: redis:8.10.2-alpine
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
     ports:
       - "6379:6379"
@@ -36,7 +36,7 @@ services:
   # S3-compatible object storage (stands in for Cloudflare R2). See ADR 0009.
   # Credentials and anonymous read access are defined in seaweedfs/s3.json.
   seaweedfs:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.47
     command: ["server", "-dir=/data", "-s3", "-s3.config=/etc/seaweedfs/s3.json"]
     ports:
       - "8333:8333"
@@ -51,7 +51,7 @@ services:
 
   # One-shot: create the media bucket, then exit.
   bucket-init:
-    image: amazon/aws-cli:latest
+    image: amazon/aws-cli:2.37.4
     depends_on:
       seaweedfs:
         condition: service_healthy
@@ -67,7 +67,7 @@ services:
     restart: "no"
 
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.31.2
     ports:
       - "1025:1025"
       - "8025:8025"
