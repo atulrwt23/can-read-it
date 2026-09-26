@@ -28,3 +28,7 @@ web/next-env.d.ts
 
 # Logs
 *.log
+
+# Written by `next dev`. The root CLAUDE.md is the single source of truth for agents.
+web/AGENTS.md
+web/CLAUDE.md

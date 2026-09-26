@@ -77,6 +77,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 - No web fonts: system sans stack for UI and titles, system serif stack for novel reading (fast first paint, nothing to download)
 - API types generated from the backend OpenAPI spec (`openapi-typescript` + `openapi-fetch`)
 - Biome for lint and format, Vitest for unit tests (Playwright later)
+- Next.js 16 changed several APIs (for example `proxy.ts` replaced middleware, and `params`/`searchParams` are promises). Its version-matched docs ship in `web/node_modules/next/dist/docs/`; check them before relying on memory.
 - Images come from our CDN with known dimensions, so `next/image` optimization is off (`unoptimized` or a pass-through loader). The web container needs no image-processing native dependencies.
 
 ### Local infrastructure (`infra/local/docker-compose.yml`)

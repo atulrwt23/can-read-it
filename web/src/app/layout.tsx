@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { SiteHeader } from "@/components/site-header";
 import { THEME_SCRIPT } from "@/components/theme-toggle";
 import { BRAND_NAME } from "@/lib/brand";
 import "./globals.css";
@@ -20,22 +19,15 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
+      <body className="min-h-dvh bg-bg text-text antialiased">
+        {/*
+          Sets data-theme before anything visible is parsed, so there is no theme flash. It sits
+          in <body>, not <head>: React hydrates <head> as soon as cached app chunks run, which can
+          be before the parser reaches an inline script there (hydration error #418).
+        */}
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static theme bootstrap, no user input */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
-      </head>
-      <body className="min-h-dvh bg-bg text-text antialiased">
-        <a
-          href="#main"
-          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:m-2 focus:rounded focus:bg-surface focus:px-3 focus:py-2"
-        >
-          Skip to content
-        </a>
-        <SiteHeader />
-        <div id="main">{children}</div>
-        <footer className="mt-16 border-t border-line py-8 text-center text-sm text-muted">
-          {BRAND_NAME} · placeholder content for development
-        </footer>
+        {children}
       </body>
     </html>
   );
