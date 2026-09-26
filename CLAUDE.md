@@ -61,11 +61,11 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 - Spring Boot 4.x, Gradle with **Kotlin DSL** and a version catalog (`gradle/libs.versions.toml`), a single Gradle project (modules are packages, enforced by Spring Modulith)
 - Spring Web MVC with virtual threads enabled (`spring.threads.virtual.enabled=true`)
 - Spring Security 7 (lambda DSL only), OAuth2 resource server for our own JWTs, Nimbus JOSE for signing
-- Spring Data JPA (Hibernate), PostgreSQL 18, Flyway migrations
+- Spring Data JPA (Hibernate) for aggregates the app writes, `JdbcClient` for read models and list queries (keyset pagination, trigram search), PostgreSQL 18, Flyway migrations. Step 1 is read-only, so JPA is added with the first write path
 - Spring Data Redis (cache, counters, rate limits, token denylist), Bucket4j for rate limiting
 - Spring Modulith (module verification, event publication registry, `@ApplicationModuleListener`)
 - springdoc-openapi (OpenAPI spec at `/v3/api-docs`, used to generate the web client types)
-- AWS SDK v2 S3 client (works against MinIO locally and Cloudflare R2 in the beta)
+- AWS SDK v2 S3 client (works against SeaweedFS locally and Cloudflare R2 in the beta)
 - Spring Mail (`JavaMailSender`) for SMTP. No email-vendor SDKs
 - Testing: JUnit 5, AssertJ, Testcontainers (Postgres, Redis), Spring Modulith test support
 - Formatting: Spotless with palantir-java-format
@@ -84,7 +84,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 |---|---|---|
 | postgres (18) | primary database | 5432 |
 | redis | cache, counters, rate limits | 6379 |
-| minio (+ one-shot bucket init) | S3-compatible storage for covers and pages | 9000 API, 9001 console |
+| seaweedfs (+ one-shot bucket init) | S3-compatible storage for covers and pages ([ADR 0009](docs/decisions/0009-seaweedfs-for-local-object-storage.md)) | 8333 S3 API |
 | mailpit | catches outgoing email (codes, password resets) | 1025 SMTP, 8025 UI |
 
 ---
@@ -352,7 +352,7 @@ cd backend && ./gradlew bootRun --args='--spring.profiles.active=local'   # http
 cd web && pnpm install && pnpm gen:api && pnpm dev                       # http://localhost:3000
 ```
 
-- The `local` profile seeds about 16 invented placeholder series (manhwa and novels, several genres and statuses, varied update times) plus fake view stats for the rankings. The seeder generates simple placeholder page images and covers (for example flat-color PNGs drawn with the JDK's `ImageIO`, showing the series color and page number), uploads them to MinIO, and records their dimensions. SVG is not used, because the media pipeline never serves SVG.
+- The `local` profile seeds about 16 invented placeholder series (manhwa and novels, several genres and statuses, varied update times) plus fake view stats for the rankings. The seeder generates simple placeholder page images and covers (for example flat-color PNGs drawn with the JDK's `ImageIO`, showing the series color and page number), uploads them to SeaweedFS, and records their dimensions. SVG is not used, because the media pipeline never serves SVG.
 - Outgoing email goes to Mailpit at http://localhost:8025.
 
 ### Beta hosting (free tier)
@@ -411,12 +411,12 @@ Phase 4: iOS then Android apps, recommendations, search upgrade, multi-language 
 ### Definition of done for step 1 (skeleton + catalog read slice)
 - [x] Architecture, database and deployment decisions recorded (`docs/architecture.md`, ADRs 0001–0008)
 - [ ] Monorepo layout from section 4, with root `README.md`, `.gitignore`, `.editorconfig`
-- [ ] `infra/local` compose file with postgres 18, redis, minio (+ bucket init) and mailpit, plus `.env.example`
+- [ ] `infra/local` compose file with postgres 18, redis, seaweedfs (+ bucket init) and mailpit, plus `.env.example`
 - [ ] Backend builds on Java 25 / Boot 4.x, with all module packages present (stubs where noted) and a passing `ModularityTests`
 - [ ] `shared`: UUIDv7 ID generation, Problem Details error handling, request-ID logging, `@ConfigurationProperties` records, security config that permits public catalog `GET`s and denies everything else by default
 - [ ] Flyway migrations for the `catalog`, `media`, `discovery` and `modulith` schemas from sections 5–6, and for the `identity` tables from section 7 (tables only; the auth flows are step 2)
 - [ ] `media.MediaUrls` and the `ObjectStorage` S3 adapter (public URLs only for now)
-- [ ] `local` profile seeder: placeholder series, editions, chapters, generated cover and page images in MinIO, novel chapter bodies, and fake view stats
+- [ ] `local` profile seeder: placeholder series, editions, chapters, generated cover and page images in SeaweedFS, novel chapter bodies, and fake view stats
 - [ ] Catalog and discovery read APIs:
   - `GET /api/v1/home` (featured, latest updates, popular for today, week and all time)
   - `GET /api/v1/series` (q, type, status, genres, sort, cursor, limit)

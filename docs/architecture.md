@@ -75,8 +75,8 @@ com.canreadit.<module>.internal/   ← entities, repositories, controllers, adap
 
 | Port (interface) | Module | Protocol | Local adapter target | Beta target |
 |---|---|---|---|---|
-| `ObjectStorage` | media | S3 API | MinIO | Cloudflare R2 |
-| `MediaUrls` | media | none (URL building) | MinIO public URL | `cdn.` R2 custom domain |
+| `ObjectStorage` | media | S3 API | SeaweedFS | Cloudflare R2 |
+| `MediaUrls` | media | none (URL building) | SeaweedFS public URL | `cdn.` R2 custom domain |
 | `EmailSender` | notifications | SMTP | Mailpit | Resend |
 | `IdTokenVerifier` | identity | OIDC + JWKS | Google/Apple (test clients) | Google/Apple |
 | `BotChallengeVerifier` | identity | HTTPS siteverify | no-op | Cloudflare Turnstile |

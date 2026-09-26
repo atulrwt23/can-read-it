@@ -10,7 +10,7 @@ A reading platform for manhwa (vertical-scroll webtoons) and web novels. Readers
 ## Stack
 - **Backend:** Java 25, Spring Boot 4 (Spring Modulith monolith), PostgreSQL 18, Redis
 - **Web:** Next.js 16, TypeScript, Tailwind CSS v4
-- **Storage:** S3-compatible object storage (MinIO locally, Cloudflare R2 in the beta)
+- **Storage:** S3-compatible object storage (SeaweedFS locally, Cloudflare R2 in the beta)
 
 ## Local development
 The code skeleton is coming in roadmap step 1. Once it lands:
