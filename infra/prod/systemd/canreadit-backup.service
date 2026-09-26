@@ -1,0 +1,8 @@
+[Unit]
+Description=CanReadIt: PostgreSQL backup to R2
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/canreadit/repo/infra/prod/backup.sh

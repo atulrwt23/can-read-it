@@ -37,7 +37,16 @@ services:
   # Credentials and anonymous read access are defined in seaweedfs/s3.json.
   seaweedfs:
     image: chrislusf/seaweedfs:4.47
-    command: ["server", "-dir=/data", "-s3", "-s3.config=/etc/seaweedfs/s3.json"]
+    # Each bucket reserves 7 volumes. The defaults (30 GB volumes, a slot count derived from free
+    # disk) leave room for only one bucket on a typical laptop, so use small volumes and a fixed
+    # cap. Volumes are not preallocated: disk use follows the data actually stored.
+    command:
+      - server
+      - -dir=/data
+      - -master.volumeSizeLimitMB=1024
+      - -volume.max=64
+      - -s3
+      - -s3.config=/etc/seaweedfs/s3.json
     ports:
       - "8333:8333"
     volumes:

@@ -1,0 +1,102 @@
+# Beta stack on the Oracle Always Free Arm VM (CLAUDE.md section 9, docs/deploy.md).
+# Driven by deploy.sh; secrets come from /opt/canreadit/.env (see .env.example), never from git.
+# No service publishes a port to the internet: traffic arrives through the Cloudflare Tunnel.
+name: canreadit-prod
+
+x-defaults: &defaults
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  postgres:
+    <<: *defaults
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?}
+      POSTGRES_USER: ${POSTGRES_USER:?}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    command: ["postgres", "-c", "shared_buffers=1GB", "-c", "effective_cache_size=3GB", "-c", "max_connections=50"]
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 3g
+
+  redis:
+    <<: *defaults
+    image: redis:8.10.2-alpine
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    mem_limit: 320m
+
+  api:
+    <<: *defaults
+    image: ${IMAGE_REGISTRY:?}/can-read-it-api:${IMAGE_TAG:-main}
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      S3_ENDPOINT: ${S3_ENDPOINT:?}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:?}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:?}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:?}
+      MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:?}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    mem_limit: 2560m
+
+  web:
+    <<: *defaults
+    image: ${IMAGE_REGISTRY:?}/can-read-it-web:${IMAGE_TAG:-main}
+    depends_on:
+      - api
+    cap_drop: [ALL]
+    mem_limit: 1g
+
+  # $0 mode (no domain): a quick tunnel with a random *.trycloudflare.com address that changes
+  # whenever this container restarts. `tunnel-url.sh` prints the current address.
+  cloudflared-quick:
+    <<: *defaults
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: ["quick"]
+    command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "--url", "http://web:3000"]
+    ports:
+      - "127.0.0.1:2000:2000"
+    depends_on:
+      - web
+
+  # With a domain: a named tunnel managed in the Cloudflare dashboard (routes /api/* to
+  # http://api:8080 and everything else to http://web:3000). See docs/deploy.md.
+  cloudflared:
+    <<: *defaults
+    image: cloudflare/cloudflared:2026.9.3
+    profiles: ["named"]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
+    depends_on:
+      - web
+      - api
+
+volumes:
+  postgres-data:
+  redis-data:

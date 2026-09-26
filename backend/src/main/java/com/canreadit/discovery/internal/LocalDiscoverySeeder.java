@@ -13,11 +13,11 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
 /**
- * Fake view stats so the home page rankings render in local development. Runs after the catalog
+ * Fake view stats so the home page rankings render in local development and the demo beta. Runs after the catalog
  * seeder and only when there are no stats yet.
  */
 @Component
-@Profile("local")
+@Profile({"local", "demo"})
 @Order(20)
 class LocalDiscoverySeeder implements ApplicationRunner {
 

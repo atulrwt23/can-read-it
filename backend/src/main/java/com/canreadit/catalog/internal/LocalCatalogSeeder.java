@@ -26,12 +26,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Seeds invented placeholder series for local development (CLAUDE.md section 9). Runs only in the
- * {@code local} profile and only into an empty catalog. All titles, text and images are made up.
+ * Seeds invented placeholder series (CLAUDE.md section 9). Runs only in the {@code local} profile
+ * (development) or the {@code demo} profile (the placeholder beta), and only into an empty catalog. All titles, text and images are made up.
  * To reseed: {@code docker compose -f infra/local/docker-compose.yml down -v}, then start again.
  */
 @Component
-@Profile("local")
+@Profile({"local", "demo"})
 @Order(10)
 class LocalCatalogSeeder implements ApplicationRunner {
 
