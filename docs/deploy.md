@@ -25,6 +25,7 @@ This covers how the beta is hosted, how a change gets from a merged PR to the li
 | Public entry | Cloudflare quick tunnel (random `trycloudflare.com` address) | $0 |
 | Images (covers, pages) | Cloudflare R2 `canreadit-media`, public through its `r2.dev` address | $0 (10 GB free) |
 | Database backups | Cloudflare R2 `canreadit-backups` (private), nightly `pg_dump` | $0 |
+| Settings and secrets | Oracle Cloud Vault, one secret read with the VM's own identity | $0 |
 | Container images | GitHub Container Registry (`ghcr.io/atulrwt23/can-read-it-{api,web}`) | $0 (public) |
 | Builds | GitHub Actions, native amd64 and arm64 runners | $0 (public repo) |
 
@@ -57,6 +58,8 @@ flowchart TB
   api -- "uploads (S3 API)" --> media
   reader -- "images" --> media
   timers -- "pg_dump" --> backups
+  vault[("Oracle Cloud Vault<br/>settings and secrets")]
+  timers -- "read settings with<br/>the VM's own identity" --> vault
 ```
 
 1. The browser only talks to Cloudflare. `cloudflared` on the VM keeps an **outbound** connection to Cloudflare, and requests travel back down it. No port on the VM is open to the internet; SSH is for you only.
@@ -131,12 +134,15 @@ Files on the VM:
 
 ```
 /opt/canreadit/
-├─ .env          secrets and settings (chmod 600, never in git; keep a copy in your password manager)
+├─ secrets.conf  where settings come from: SECRETS_PROVIDER=oci-vault plus the secret's OCID (not secret)
+├─ .env          settings, only if SECRETS_PROVIDER=file (chmod 600, never in git)
 ├─ repo/         a clone of this repository, checked out at the deployed commit
 └─ state/
    ├─ deployed   SHA of the running release
    ├─ failed     SHAs that failed their health checks (not retried automatically)
    └─ pinned     present only while an operator has pinned a release
+
+/run/canreadit/env   settings fetched from Vault on each run (memory only, root only, gone on reboot)
 ```
 
 ### Content, search engines and data
@@ -148,7 +154,7 @@ Files on the VM:
 ### Security
 
 - No inbound ports except SSH (restricted to your key). All web traffic arrives over the outbound tunnel.
-- Secrets live only in `/opt/canreadit/.env` on the VM. CI never sees them, because it doesn't deploy.
+- Secrets live in **Oracle Cloud Vault**. The VM reads them with its own identity (an *instance principal*), so no credential is stored on it, and the fetched copy lives only in memory (`/run/canreadit/env`). CI never sees them, because it doesn't deploy. A plain `/opt/canreadit/.env` is supported as a fallback.
 - Containers run as non-root with `no-new-privileges`. The API filesystem is read-only, and the API and web drop all Linux capabilities.
 - The VM installs OS security updates automatically (`unattended-upgrades`).
 
@@ -183,26 +189,64 @@ ssh ubuntu@<vm-public-ip>
 curl -fsSL https://raw.githubusercontent.com/atulrwt23/can-read-it/main/infra/prod/bootstrap.sh | sudo bash
 ```
 
-[`bootstrap.sh`](../infra/prod/bootstrap.sh) installs Docker, clones the repository to `/opt/canreadit/repo`, creates `/opt/canreadit/.env` from [`.env.example`](../infra/prod/.env.example), and enables the deploy and backup timers. It is safe to run again.
+[`bootstrap.sh`](../infra/prod/bootstrap.sh) installs Docker and Oracle's `oci` CLI, clones the repository to `/opt/canreadit/repo`, creates `/opt/canreadit/secrets.conf`, and enables the deploy and backup timers. It is safe to run again.
 
-### 4. Fill in the secrets
+### 4. Put the settings in Oracle Cloud Vault
+
+All production settings go into **one Vault secret** whose content is the whole env file: the same `KEY=value` lines as [`.env.example`](../infra/prod/.env.example). The deploy and backup scripts fetch it on every run.
+
+**a. Write the content** (on your own computer, then keep it in your password manager):
+
+- **Start from** [`infra/prod/.env.example`](../infra/prod/.env.example).
+- **`POSTGRES_PASSWORD`:** generate one with `openssl rand -base64 32 | tr -d '/+='`.
+- **`S3_*`, `MEDIA_PUBLIC_BASE_URL` and `BACKUP_*`:** the values from step 1. The `BACKUP_*` values can stay empty until you create the backups bucket; only the nightly backup fails until then.
+- **Leave as they are:** `IMAGE_REGISTRY`, `COMPOSE_PROFILES=quick` and `SPRING_PROFILES_ACTIVE=prod,demo`.
+
+**b. Create the vault, a key and the secret** (Oracle console, ☰ → **Identity & Security → Vault**):
+
+1. **Create Vault:** name `canreadit`, in your root compartment (or the VM's compartment). Leave *virtual private vault* unticked.
+2. Open it → **Master Encryption Keys → Create Key:** name `canreadit-secrets`, **Protection Mode: Software**, algorithm AES 256.
+3. **Secrets → Create Secret:**
+   - **Name:** `canreadit-prod-env`
+   - **Encryption key:** `canreadit-secrets`
+   - **Secret type template:** Plain-Text
+   - **Secret contents:** paste the whole content from (a)
+4. Open the new secret and copy its **OCID** (`ocid1.vaultsecret…`).
+
+**c. Let the VM, and only the VM, read that secret:**
+
+1. Open your instance and copy its **OCID** (`ocid1.instance…`).
+2. ☰ → **Identity & Security → Domains → Default → Dynamic groups → Create dynamic group**. Name it `canreadit-vm`, with the matching rule:
+   ```
+   instance.id = '<instance OCID>'
+   ```
+3. ☰ → **Identity & Security → Policies** (root compartment) → **Create Policy**. Name it `canreadit-vm-secrets`, turn on the **manual editor**, and enter:
+   ```
+   Allow dynamic-group 'Default'/'canreadit-vm' to read secret-bundles in tenancy where target.secret.id = '<secret OCID>'
+   ```
+   This grants read access to that one secret, for that one VM, and nothing else.
+
+**d. Point the VM at it:**
 
 ```bash
-sudo nano /opt/canreadit/.env
+sudo nano /opt/canreadit/secrets.conf
+#   SECRETS_PROVIDER=oci-vault
+#   OCI_SECRET_ID=<secret OCID>
+sudo /opt/canreadit/repo/infra/prod/secrets.sh check     # prints names only, never values
+sudo rm -f /opt/canreadit/.env                           # the placeholder file is no longer used
 ```
 
-- **`POSTGRES_PASSWORD`:** generate one with `openssl rand -base64 32 | tr -d '/+='`.
-- **`S3_*`, `MEDIA_PUBLIC_BASE_URL` and `BACKUP_*`:** the values from step 1.
-- **Leave as they are:** `COMPOSE_PROFILES=quick` and `SPRING_PROFILES_ACTIVE=prod,demo`.
+`secrets.sh check` should end with "all settings present". A "NotAuthorizedOrNotFound" error usually means the policy hasn't taken effect yet (give it a minute) or an OCID doesn't match.
 
-Keep a copy of this file in your password manager. It is the only place these secrets exist.
+<details>
+<summary>Alternative: keep the settings in a file on the VM instead</summary>
 
-### 5. Make the container images public (once)
+Leave `SECRETS_PROVIDER=file` in `/opt/canreadit/secrets.conf`, then put the same content in `/opt/canreadit/.env` (`sudo nano /opt/canreadit/.env`, which bootstrap created with `chmod 600`). Keep a copy in your password manager, because the VM is then the only other place it exists.
+</details>
 
-The first push to `main` after this change publishes `can-read-it-api` and `can-read-it-web` to GHCR. GitHub creates new packages as **private**, and the VM pulls without credentials. So, once:
+### 5. Container images
 
-1. Go to github.com/atulrwt23 → **Packages**.
-2. For each of the two packages, open **Package settings**, go to **Danger Zone**, and choose **Change visibility** → **Public**.
+Nothing to do. CI publishes `ghcr.io/atulrwt23/can-read-it-api` and `-web` publicly for every green commit on `main`, and the VM pulls them without logging in. If a deploy ever logs "images … not published yet" for longer than a CI run takes, check the package visibility under github.com/atulrwt23 → **Packages** → **Package settings**.
 
 ### 6. First deploy
 
@@ -216,10 +260,10 @@ The last command prints the public address, for example `https://gentle-river-wo
 
 ## Operating it
 
-Set up a shortcut on the VM. Use it for **looking** (ps, logs, exec). Make changes through `deploy.sh`, because `up` run directly would switch to the `:main` tag instead of the deployed SHA.
+Set up a shortcut on the VM. [`crc.sh`](../infra/prod/crc.sh) is `docker compose` with the settings loaded the same way the deploy loads them and the image tag pinned to the deployed release. Use it for looking (ps, logs, exec); ship changes through `main` and `deploy.sh`.
 
 ```bash
-alias crc='sudo docker compose -f /opt/canreadit/repo/infra/prod/compose.yml --env-file /opt/canreadit/.env'
+alias crc='sudo /opt/canreadit/repo/infra/prod/crc.sh'
 ```
 
 | Task | How |
@@ -234,7 +278,8 @@ alias crc='sudo docker compose -f /opt/canreadit/repo/infra/prod/compose.yml --e
 | Roll back to an older release | `sudo /opt/canreadit/repo/infra/prod/deploy.sh --pin <sha>` (the timer then leaves it alone) |
 | Resume following `main` | `sudo /opt/canreadit/repo/infra/prod/deploy.sh --unpin` |
 | Retry a release marked failed | `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force <sha>`, or push a fix (the next commit is tried automatically) |
-| Change a secret or setting | Edit `/opt/canreadit/.env`, then `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force` |
+| Change a secret or setting | Vault → `canreadit-prod-env` → **Create Secret Version** (paste the full content), then `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force` |
+| Check the settings | `sudo /opt/canreadit/repo/infra/prod/secrets.sh check` (names only, never values) |
 | Back up now | `sudo systemctl start canreadit-backup && journalctl -u canreadit-backup -n 20` |
 | Database shell | `crc exec postgres psql -U canreadit` |
 
@@ -282,11 +327,12 @@ Old images stay in R2. Identical images are reused (storage is content-addressed
 | Symptom | Likely cause | What to do |
 |---|---|---|
 | New commit isn't live after 15 min | CI failed, so no images were published | Check the Actions tab. Deploys resume with the next green commit. |
-| `deploy` logs "images … not published yet" | CI still running, or the packages are private | Wait, or make both GHCR packages public ([step 5](#5-make-the-container-images-public-once)). |
+| `deploy` logs "images … not published yet" | CI still running (or failed) | Wait, or check the Actions tab ([step 5](#5-container-images)). |
+| `deploy` logs "could not read the settings from Oracle Cloud Vault" | Dynamic group or policy missing, or a wrong OCID in `secrets.conf` | Recheck [step 4c](#4-put-the-settings-in-oracle-cloud-vault). Running containers are unaffected. |
 | `deploy` logs "is unhealthy" and rolled back | The new release fails to start | `journalctl -u canreadit-deploy` shows the last 80 log lines of api and web. Fix and merge. |
 | Site address stopped working | cloudflared restarted (reboot, update), so the quick-tunnel address changed | Run `tunnel-url.sh` for the new one. A domain fixes this for good. |
-| Images don't load | Wrong `MEDIA_PUBLIC_BASE_URL`, or the r2.dev subdomain is disabled | Check the bucket's public access, fix `.env`, then `deploy.sh --force`. |
-| API won't start: "required variable … is missing" | An empty value in `.env` | Fill it in, then `deploy.sh --force`. |
+| Images don't load | Wrong `MEDIA_PUBLIC_BASE_URL`, or the r2.dev subdomain is disabled | Check the bucket's public access, fix the setting, then `deploy.sh --force`. |
+| API won't start: "required variable … is missing" | An empty setting | Run `secrets.sh check`, fill it in, then `deploy.sh --force`. |
 
 ## Limits of the $0 setup
 
@@ -305,7 +351,7 @@ All of this is configuration. No code changes.
    - `<domain>` with path `api/*` → `http://api:8080`
    - `<domain>` → `http://web:3000`
 3. On the `canreadit-media` bucket, add a **custom domain** such as `cdn.<domain>`, then turn off the r2.dev subdomain.
-4. In `/opt/canreadit/.env`, set:
+4. In your settings (the Vault secret), set:
    - `COMPOSE_PROFILES=named`
    - `TUNNEL_TOKEN=<token>`
    - `MEDIA_PUBLIC_BASE_URL=https://cdn.<domain>`

@@ -14,3 +14,4 @@ Short records of significant decisions. File name: `NNNN-kebab-title.md`. Each h
 | [0008](0008-design-from-tokens.md) | Design from tokens, no prototype | Accepted |
 | [0009](0009-seaweedfs-for-local-object-storage.md) | SeaweedFS for local object storage | Accepted |
 | [0010](0010-pull-based-deploys-and-quick-tunnel.md) | Pull-based deploys, and a quick tunnel until there is a domain | Accepted |
+| [0011](0011-production-settings-in-oracle-cloud-vault.md) | Production settings in Oracle Cloud Vault | Accepted |

@@ -144,7 +144,7 @@ Losing Redis never loses committed data. At worst, rankings lose up to one roll-
 | Edge | Cloudflare free + Tunnel | any CDN or load balancer that routes `/api/*` |
 | Email | Resend over SMTP | any SMTP relay: change `spring.mail.*` |
 | Registry / CI | GHCR + GitHub Actions; pull-based deploys by a timer on the VM ([deploy.md](deploy.md)) | any OCI registry and deploy tool |
-| Secrets | env file on the VM only (`/opt/canreadit/.env`) | a cloud secrets manager injected as env vars |
+| Secrets | Oracle Cloud Vault, read with the VM's instance principal ([ADR 0011](decisions/0011-production-settings-in-oracle-cloud-vault.md)) | another secrets manager plus machine identity: one provider in `infra/prod/lib.sh` |
 | Monitoring | uptime check (free) + optional Grafana Cloud free via Alloy | any Prometheus or OTLP backend |
 
 VM memory budget (12 GB):
