@@ -147,6 +147,23 @@ class SeriesApiIT {
     }
 
     @Test
+    void popularSortsBySevenDayViewsAndPaginates() throws Exception {
+        fx.series("quiet").popularity(0).create();
+        fx.series("hit").popularity(900).create();
+        fx.series("steady").popularity(40).create();
+
+        var first = mvc.get().uri("/api/v1/series?sort=POPULAR&limit=2").exchange();
+        assertThat(first).bodyJson().extractingPath("$.items[*].slug").asArray().containsExactly("hit", "steady");
+        String cursor = com.jayway.jsonpath.JsonPath.read(first.getResponse().getContentAsString(), "$.nextCursor");
+
+        assertThat(mvc.get().uri("/api/v1/series?sort=POPULAR&limit=2&cursor=" + cursor))
+                .bodyJson()
+                .extractingPath("$.items[*].slug")
+                .asArray()
+                .containsExactly("quiet");
+    }
+
+    @Test
     void rejectsInvalidParametersAsProblems() {
         assertThat(mvc.get().uri("/api/v1/series?limit=500"))
                 .hasStatus(HttpStatus.BAD_REQUEST)

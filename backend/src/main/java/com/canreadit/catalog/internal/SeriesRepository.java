@@ -98,6 +98,14 @@ class SeriesRepository {
                 }
                 sql.append(" order by s.title, s.id");
             }
+            case POPULAR -> {
+                // Popularity changes between page loads, so a later page can repeat or skip a series that moved.
+                if (after != null) {
+                    sql.append(" and (s.popularity, s.id) < (:afterKey, :afterId)");
+                    params.put("afterKey", Long.parseLong(after.key()));
+                }
+                sql.append(" order by s.popularity desc, s.id desc");
+            }
         }
         if (after != null) {
             params.put("afterId", after.id());

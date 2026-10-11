@@ -1,8 +1,11 @@
 package com.canreadit.discovery.internal;
 
+import com.canreadit.catalog.SeriesPopularity;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
@@ -27,11 +30,13 @@ class ViewRollup {
     private final JdbcClient jdbc;
     private final StringRedisTemplate redis;
     private final Clock clock;
+    private final SeriesPopularity popularity;
 
-    ViewRollup(JdbcClient jdbc, StringRedisTemplate redis, Clock clock) {
+    ViewRollup(JdbcClient jdbc, StringRedisTemplate redis, Clock clock, SeriesPopularity popularity) {
         this.jdbc = jdbc;
         this.redis = redis;
         this.clock = clock;
+        this.popularity = popularity;
     }
 
     @Scheduled(fixedDelayString = "${app.discovery.rollup-interval:PT5M}", initialDelayString = "PT1M")
@@ -96,5 +101,15 @@ class ViewRollup {
                 .param("today", today)
                 .param("weekStart", today.minusDays(6))
                 .update();
+        pushPopularity();
+    }
+
+    /** Browse's "Popular" sort is a catalog query, so the catalog keeps its own copy of the 7-day views. */
+    private void pushPopularity() {
+        Map<UUID, Long> views = new HashMap<>();
+        jdbc.sql("select series_id, views_7d from discovery.series_stats").query(rs -> {
+            views.put(rs.getObject("series_id", UUID.class), rs.getLong("views_7d"));
+        });
+        popularity.update(views);
     }
 }

@@ -105,6 +105,9 @@ class ViewsIT {
         assertThat(dailyViews(other.id(), today)).isEqualTo(9);
         assertThat(stats(series.id())).containsExactly(2L, 42L, 542L);
         assertThat(stats(other.id())).containsExactly(9L, 9L, 9L);
+        // Browse's "Popular" sort reads the catalog's copy of the 7-day views.
+        assertThat(popularity(series.id())).isEqualTo(42);
+        assertThat(popularity(other.id())).isEqualTo(9);
     }
 
     private org.springframework.test.web.servlet.assertj.MvcTestResult view(String slug, String ip, String agent) {
@@ -132,6 +135,13 @@ class ViewsIT {
         return jdbc.sql("select views from discovery.series_views_daily where series_id = :s and day = :d")
                 .param("s", series)
                 .param("d", day)
+                .query(Long.class)
+                .single();
+    }
+
+    private long popularity(UUID series) {
+        return jdbc.sql("select popularity from catalog.series where id = :s")
+                .param("s", series)
                 .query(Long.class)
                 .single();
     }

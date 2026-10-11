@@ -112,6 +112,7 @@ class CatalogService implements CatalogQueries {
             case UPDATED -> (last.lastPublishedAt() == null ? last.createdAt() : last.lastPublishedAt()).toString();
             case NEWEST -> last.createdAt().toString();
             case TITLE -> last.title();
+            case POPULAR -> Long.toString(last.popularity());
         };
         return Cursors.encode(sort.name(), key, last.id().toString());
     }
@@ -122,8 +123,10 @@ class CatalogService implements CatalogQueries {
             if (!parts.get(0).equals(sort.name())) {
                 throw invalidCursor();
             }
-            if (sort != BrowseSort.TITLE) {
-                Instant.parse(parts.get(1));
+            switch (sort) {
+                case UPDATED, NEWEST -> Instant.parse(parts.get(1));
+                case POPULAR -> Long.parseLong(parts.get(1));
+                case TITLE -> {}
             }
             return new BrowseQuery.After(parts.get(1), UUID.fromString(parts.get(2)));
         } catch (DateTimeParseException | IllegalArgumentException e) {

@@ -25,7 +25,8 @@ record SeriesRow(
         @Nullable Integer firstReleasedYear,
         @Nullable String releaseCadence,
         @Nullable Instant lastPublishedAt,
-        Instant createdAt) {
+        Instant createdAt,
+        long popularity) {
 
     enum Visibility {
         DRAFT,
@@ -36,7 +37,8 @@ record SeriesRow(
 
     static final String COLUMNS = """
             s.id, s.slug, s.title, s.alt_titles, s.synopsis, s.type, s.status, s.visibility, s.age_rating,
-            s.cover_asset_id, s.first_released_year, s.release_cadence, s.last_published_at, s.created_at
+            s.cover_asset_id, s.first_released_year, s.release_cadence, s.last_published_at, s.created_at,
+            s.popularity
             """;
 
     static SeriesRow map(ResultSet rs, int rowNum) throws SQLException {
@@ -55,7 +57,8 @@ record SeriesRow(
                 rs.getObject("first_released_year", Integer.class),
                 rs.getString("release_cadence"),
                 instant(rs, "last_published_at"),
-                Instant.from(rs.getObject("created_at", OffsetDateTime.class)));
+                Instant.from(rs.getObject("created_at", OffsetDateTime.class)),
+                rs.getLong("popularity"));
     }
 
     static @Nullable Instant instant(ResultSet rs, String column) throws SQLException {
