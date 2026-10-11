@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -52,6 +53,14 @@ class CatalogService implements CatalogQueries {
     @Override
     public List<UUID> publishedSeriesIds() {
         return series.publishedIds();
+    }
+
+    @Override
+    public Optional<UUID> readableSeriesId(String slug) {
+        return series.findBySlug(slug)
+                .filter(row -> row.visibility() == SeriesRow.Visibility.PUBLISHED
+                        || row.visibility() == SeriesRow.Visibility.UNLISTED)
+                .map(SeriesRow::id);
     }
 
     List<Genre> genres() {
