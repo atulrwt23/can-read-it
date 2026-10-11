@@ -137,7 +137,7 @@ Losing Redis never loses committed data. At worst, rankings lose up to one roll-
 ### Beta ($0)
 | Piece | Choice | Swap path |
 |---|---|---|
-| Compute | Oracle Always Free Arm VM (2 OCPU / 12 GB), Docker Compose | any Docker host, ECS, k8s |
+| Compute | Oracle Always Free Arm VM (1 OCPU / 6 GB now; up to 2 OCPU / 12 GB), Docker Compose | any Docker host, ECS, k8s |
 | Database | Postgres 18 container on the VM, nightly `pg_dump` to R2 | managed Postgres (RDS etc.): change the JDBC URL |
 | Cache | Redis container on the VM | ElastiCache or Valkey: change the host |
 | Object storage | Cloudflare R2 | S3 or any S3 API: change the endpoint and keys |
@@ -147,15 +147,16 @@ Losing Redis never loses committed data. At worst, rankings lose up to one roll-
 | Secrets | Oracle Cloud Vault, read with the VM's instance principal ([ADR 0011](decisions/0011-production-settings-in-oracle-cloud-vault.md)) | another secrets manager plus machine identity: one provider in `infra/prod/lib.sh` |
 | Monitoring | uptime check (free) + optional Grafana Cloud free via Alloy | any Prometheus or OTLP backend |
 
-VM memory budget (12 GB):
+VM memory budget (container limits for the 6 GB VM; double them on 12 GB):
 
 | Process | Budget |
 |---|---|
-| Postgres | about 3 GB |
-| JVM | about 2.5 GB |
-| Next.js | about 1 GB |
-| Redis | 256 MB (`maxmemory` set) |
-| OS, page cache, headroom | the rest |
+| Postgres | 1.5 GB (`shared_buffers` 512 MB) |
+| JVM | 2 GB (heap 75% of it) |
+| Next.js | 1 GB |
+| Redis | 320 MB (`maxmemory` 256 MB) |
+| cloudflared | 256 MB |
+| OS, page cache, headroom | the rest, plus 2 GB of swap |
 
 ### Public launch (planned, not decided)
 - Compute moves to AWS: ECS Fargate or EKS for `api` and `web`, RDS Postgres and ElastiCache.
