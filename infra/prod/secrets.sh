@@ -11,20 +11,15 @@ case "${1:-check}" in
     load_env
     provider=$(sed -n 's/^SECRETS_PROVIDER=//p' "$SECRETS_CONF" 2> /dev/null || true)
     log "settings read from ${provider:-file} ($ENV_FILE)"
-    # Every variable named in .env.example must be present; some may legitimately be empty.
-    optional="TUNNEL_TOKEN COMPOSE_PROFILES"
-    missing=0
-    while IFS= read -r name; do
-      if [[ -z "${!name:-}" && " $optional " != *" $name "* ]]; then
-        log "missing or empty: $name"
-        missing=$((missing + 1))
-      fi
-    done < <(sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1/p' "$here/.env.example")
-    if ((missing > 0)); then
-      log "$missing setting(s) need a value"
+    # The backup settings can wait until the backups bucket exists: only the nightly backup needs them.
+    if ! require_settings backup; then
+      log "backups are not configured yet: the nightly backup is skipped until these have values"
+    fi
+    if ! require_settings app; then
+      log "the app can't be deployed until these have values"
       exit 1
     fi
-    log "all settings present"
+    log "all settings the app needs are present"
     ;;
   *)
     echo "usage: secrets.sh check" >&2

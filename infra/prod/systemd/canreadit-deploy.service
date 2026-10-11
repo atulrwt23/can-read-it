@@ -7,4 +7,4 @@ Requires=docker.service
 [Service]
 Type=oneshot
 ExecStart=/opt/canreadit/repo/infra/prod/deploy.sh
-TimeoutStartSec=20min
+TimeoutStartSec=40min

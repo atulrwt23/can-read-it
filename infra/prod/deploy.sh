@@ -27,6 +27,9 @@ main() {
   # shellcheck source=lib.sh
   . "$here/lib.sh"
   load_env
+  # Incomplete settings (for example right after bootstrap) are not the release's fault: stop here,
+  # so no SHA is marked failed and the deploy runs as soon as the settings are complete.
+  require_settings app || { log "not deploying until the settings are complete (secrets.sh check)"; exit 1; }
   mkdir -p "$STATE"
   exec 9>"$STATE/deploy.lock"
   flock -n 9 || { log "another deploy is running"; exit 0; }
@@ -60,6 +63,11 @@ main() {
   done
 
   log "deploying ${target:0:7} (currently ${current:0:7})"
+  # The first start of a fresh demo database seeds and uploads ~900 placeholder images, which takes
+  # a while on a 1 OCPU VM: give it longer than a normal restart.
+  if [[ -z "$current" ]]; then
+    HEALTH_TIMEOUT=${FIRST_HEALTH_TIMEOUT:-1500}
+  fi
   if release "$target"; then
     echo "$target" > "$STATE/deployed"
     if $pin; then
@@ -91,7 +99,7 @@ release() {
   wait_healthy api web
 }
 
-# The first start of a fresh demo database seeds and uploads placeholder images, so allow minutes.
+# Normal restarts are healthy in under a minute; HEALTH_TIMEOUT is longer on a first deploy.
 wait_healthy() {
   local deadline=$((SECONDS + ${HEALTH_TIMEOUT:-600})) svc id status all
   while (( SECONDS < deadline )); do
