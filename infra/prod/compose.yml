@@ -60,6 +60,9 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:?}
       MEDIA_PUBLIC_BASE_URL: ${MEDIA_PUBLIC_BASE_URL:?}
       REDIS_HOST: redis
+      # Refreshes the web app's cached pages when content changes (optional; see .env.example).
+      WEB_REVALIDATE_URL: http://web:3000/internal/revalidate
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -75,6 +78,8 @@ services:
   web:
     <<: *defaults
     image: ${IMAGE_REGISTRY:?}/can-read-it-web:${IMAGE_TAG:-main}
+    environment:
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
     depends_on:
       - api
     cap_drop: [ALL]

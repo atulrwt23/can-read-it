@@ -49,6 +49,10 @@ logging:
 app:
   brand:
     name: CanReadIt
+  web:
+    # Where the API asks the web app to refresh cached pages (empty: pages refresh on their timers).
+    revalidate-url: ${WEB_REVALIDATE_URL:}
+    revalidate-secret: ${REVALIDATE_SECRET:}
   media:
     public-base-url: ${MEDIA_PUBLIC_BASE_URL}
     s3:
