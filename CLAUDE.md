@@ -362,9 +362,10 @@ cd web && pnpm install && pnpm gen:api && pnpm dev                       # http:
 ### Beta hosting (free tier)
 All of it costs $0. Every piece can be swapped by configuration.
 
-- **Compute:** one Oracle Cloud Always Free Ampere (Arm) VM, now limited to 2 OCPU / 12 GB. It runs `api`, `web`, `postgres`, `redis` and `cloudflared` with Docker Compose (`infra/prod/`). **Build every image for `linux/arm64` as well as `linux/amd64`.**
-  - Memory budget: Postgres about 3 GB (`shared_buffers` about 2 GB), JVM about 2.5 GB (`-XX:MaxRAMPercentage`), Next.js about 1 GB, Redis 256 MB with `maxmemory` set, and the rest left as headroom and page cache.
-  - Optional: upgrade the Oracle account to Pay-As-You-Go with a $0 budget alert. Always Free resources stay free, and the VM is no longer reclaimed for being idle.
+- **Compute:** one Oracle Cloud Always Free Ampere (Arm) VM. The beta VM is 1 OCPU / 6 GB in Mumbai, the smallest Always Free Arm shape (the allowance can be up to 2 OCPU / 12 GB). It runs `api`, `web`, `postgres`, `redis` and `cloudflared` with Docker Compose (`infra/prod/`). **Build every image for `linux/arm64` as well as `linux/amd64`.**
+  - Memory budget (container limits, sized for 6 GB): Postgres 1.5 GB (`shared_buffers` 512 MB), JVM 2 GB (heap 75% via `-XX:MaxRAMPercentage`), Next.js 1 GB, Redis 320 MB with `maxmemory` set, plus 2 GB of swap. On a 12 GB VM, double them.
+  - Arm capacity is often short: `infra/prod/launch-vm.sh` retries VM creation from Cloud Shell until it succeeds.
+  - Optional: upgrade the Oracle account to Pay-As-You-Go with a $0 budget alert. Always Free resources stay free, the VM is no longer reclaimed for being idle, and Arm capacity is easier to get.
 - **Edge:** the Cloudflare free plan. A Cloudflare Tunnel keeps the VM's inbound ports closed, so there is no reverse proxy on the VM ([ADR 0010](docs/decisions/0010-pull-based-deploys-and-quick-tunnel.md)):
   - **Now (no domain, $0):** a quick tunnel at a random `*.trycloudflare.com` address forwards everything to `web`, and Next.js proxies `/api/*` to `api`. Images are served from the R2 bucket's `r2.dev` address.
   - **With a domain:** a named tunnel routes `<domain>/api/*` → `http://api:8080` and `<domain>/*` → `http://web:3000`, and `cdn.<domain>` is an R2 custom domain. Switching is configuration only.

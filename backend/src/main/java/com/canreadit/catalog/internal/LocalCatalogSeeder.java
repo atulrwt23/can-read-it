@@ -75,8 +75,13 @@ class LocalCatalogSeeder implements ApplicationRunner {
 
         Instant now = Instant.now().truncatedTo(ChronoUnit.MINUTES);
         List<SeedSeries> all = SeedSeries.all();
-        for (SeedSeries series : all) {
+        // Uploading the generated images takes minutes on a small VM, and the app only reports ready
+        // afterwards, so show progress.
+        log.info("Seeding {} placeholder series and uploading their images", all.size());
+        for (int i = 0; i < all.size(); i++) {
+            SeedSeries series = all.get(i);
             seed(series, genreIds, now, random);
+            log.info("Seeded placeholder series {}/{}: {}", i + 1, all.size(), series.slug());
         }
         log.info("Seeded {} placeholder series in {} s", all.size(), (System.nanoTime() - started) / 1_000_000_000);
     }

@@ -7,6 +7,7 @@ here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 # shellcheck source=lib.sh
 . "$here/lib.sh"
 load_env
+require_settings backup || { log "backups are not configured yet (docs/deploy.md, step 1): skipping"; exit 1; }
 export IMAGE_TAG=${IMAGE_TAG:-$(deployed_tag)}
 
 key="postgres/canreadit-$(date -u +%Y%m%dT%H%M%SZ).dump"

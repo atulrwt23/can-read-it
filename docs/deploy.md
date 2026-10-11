@@ -21,7 +21,7 @@ This covers how the beta is hosted, how a change gets from a merged PR to the li
 
 | Piece | Where | Cost |
 |---|---|---|
-| Compute | Oracle Always Free Arm VM (2 OCPU, 12 GB), Ubuntu 24.04, Docker Compose | $0 |
+| Compute | Oracle Always Free Arm VM (1 OCPU / 6 GB, or 2 OCPU / 12 GB where the account allows), Ubuntu 24.04, Docker Compose | $0 |
 | Public entry | Cloudflare quick tunnel (random `trycloudflare.com` address) | $0 |
 | Images (covers, pages) | Cloudflare R2 `canreadit-media`, public through its `r2.dev` address | $0 (10 GB free) |
 | Database backups | Cloudflare R2 `canreadit-backups` (private), nightly `pg_dump` | $0 |
@@ -94,10 +94,11 @@ sequenceDiagram
   end
 ```
 
+- **Settings first.** If any setting the app needs is empty (for example right after bootstrap), the deploy stops before touching anything and says which, so no release is blamed for it.
 - **Pull-based.** Nothing (not CI, not you) connects *into* the VM to deploy. A systemd timer on the VM runs [`infra/prod/deploy.sh`](../infra/prod/deploy.sh) every 2 minutes. CI needs no credentials for the VM, and the VM needs no inbound ports.
 - **Only green commits deploy.** CI publishes the `:<sha>` images only after the backend and web tests pass. A commit whose tests fail never gets images, so the VM never deploys it.
 - **Config travels with the code.** The VM checks out the same commit as the images, so `compose.yml` and the scripts always match the release.
-- **Automatic rollback.** If the new API or web container isn't healthy within 10 minutes, the previous release is restored and the bad SHA is recorded in `/opt/canreadit/state/failed`, so it isn't retried every 2 minutes. The next commit on `main` is tried as usual.
+- **Automatic rollback.** If the new API or web container isn't healthy within 10 minutes (25 on the very first deploy, while the demo data is seeded), the previous release is restored and the bad SHA is recorded in `/opt/canreadit/state/failed`, so it isn't retried every 2 minutes. The next commit on `main` is tried as usual.
 - **Timing.** From merge to live: CI (about 5 to 10 minutes) plus at most 2 minutes for the timer, plus about 10 seconds for containers to restart. During that restart the API is briefly unavailable.
 - **Migrations run when the API starts**, and a rollback does not undo them. Every migration must keep the previous release working (expand now, contract in a later release).
 
@@ -122,13 +123,13 @@ flowchart TD
 
 | Container | Image | Memory limit | Notes |
 |---|---|---|---|
-| `cloudflared-quick` | `cloudflare/cloudflared` | none | Quick tunnel. Its address changes whenever this container restarts. |
+| `cloudflared-quick` | `cloudflare/cloudflared` | none (~50 MB) | Quick tunnel. Its address changes whenever this container restarts. |
 | `web` | `ghcr.io/atulrwt23/can-read-it-web:<sha>` | 1 GB | Next.js standalone, non-root, `/healthz` health check. |
-| `api` | `ghcr.io/atulrwt23/can-read-it-api:<sha>` | 2.5 GB | Spring Boot (`prod,demo` profiles), non-root, read-only filesystem. |
-| `postgres` | `postgres:18.6-alpine` | 3 GB | Data in the `canreadit-prod_postgres-data` volume. |
+| `api` | `ghcr.io/atulrwt23/can-read-it-api:<sha>` | 2 GB | Spring Boot (`prod,demo` profiles), non-root, read-only filesystem. The JVM heap is 75% of the limit. |
+| `postgres` | `postgres:18.6-alpine` | 1.5 GB | `shared_buffers` 512 MB. Data in the `canreadit-prod_postgres-data` volume. |
 | `redis` | `redis:8.10.2-alpine` | 320 MB | Unused until step 2. |
 
-A fresh stack uses about 600 MB, which leaves plenty of room on the 12 GB VM.
+The limits add up to about 4.9 GB, so the stack fits the smallest Always Free Arm shape (1 OCPU / 6 GB), and `bootstrap.sh` adds 2 GB of swap as a safety net. A running demo stack actually uses about 1 GB. On a 12 GB VM the limits (and `shared_buffers`) can be doubled in `compose.yml`.
 
 Files on the VM:
 
@@ -168,28 +169,60 @@ You need your Oracle Cloud and Cloudflare accounts. This takes about 30 minutes.
 2. Open its **Settings**. Under **Public access**, allow the **R2.dev subdomain**, then copy the `https://pub-….r2.dev` address. It becomes `MEDIA_PUBLIC_BASE_URL`.
 3. Create a second bucket, **`canreadit-backups`**, and keep it private. Under **Settings → Object lifecycle rules**, add a rule that deletes objects with the prefix `postgres/` after 30 days.
 4. Under **R2 → Manage API tokens**, create a token with **Object Read & Write** on `canreadit-media` only. Copy the Access Key ID and Secret Access Key: they become `S3_ACCESS_KEY` and `S3_SECRET_KEY`.
-5. Create another token with **Object Read & Write** on `canreadit-backups` only, for `BACKUP_S3_ACCESS_KEY` and `BACKUP_S3_SECRET_KEY`. Separate tokens mean a leaked media key can't touch your backups.
+5. Create another token with **Object Read & Write** on `canreadit-backups` only, for `BACKUP_S3_ACCESS_KEY` and `BACKUP_S3_SECRET_KEY`. Separate tokens mean a leaked media key can't touch your backups. The backups bucket and its token can wait: until they exist, only the nightly backup is skipped.
 6. Note your S3 endpoint, `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` (shown on the R2 overview page). It goes in both `S3_ENDPOINT` and `BACKUP_S3_ENDPOINT`.
 
-### 2. Oracle Cloud: the VM
+### 2. Oracle Cloud: the network and the VM
 
-1. **Compute → Instances → Create instance.**
-   - **Image:** Canonical Ubuntu 24.04. The Ampere shape picks the aarch64 build automatically.
-   - **Shape:** Ampere `VM.Standard.A1.Flex`, 2 OCPU, 12 GB memory (within the Always Free limit).
-   - **Boot volume:** 100 GB (Always Free includes 200 GB in total).
-   - **Networking:** the default VCN with a public IPv4 address. The default security list allows only SSH (22), and that's all it needs.
-   - Add your SSH public key.
-2. If Oracle says the shape is "out of capacity", try another availability domain, or retry later.
-3. Optional but recommended: upgrade the account to **Pay As You Go** with a $0 budget alert. Always Free resources stay free, and Oracle no longer reclaims the VM when it looks idle.
+**a. Network.** A new account has no network. ☰ → **Networking → Virtual cloud networks**, with your root compartment selected → **Actions → Start VCN Wizard → Create VCN with Internet Connectivity**. Name it `canreadit-vcn` and keep the default address ranges. The wizard creates a public subnet (`public subnet-canreadit-vcn`), an internet gateway and the routes. Its default security list lets only SSH (port 22) in, and that's all the VM needs.
+
+**b. An SSH key just for this server**, on your computer:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_canreadit -C "you@example.com canreadit"
+cat ~/.ssh/id_ed25519_canreadit.pub      # this public line is what Oracle gets
+```
+
+Don't reuse a work key, and avoid Oracle's **Generate a key pair for me** unless you click **Save private key** and keep the file: Oracle keeps no copy, and without it nobody can log in to the VM.
+
+**c. The VM.** **Compute → Instances → Create instance**:
+- **Image:** Canonical Ubuntu 24.04 (the Ampere shape picks the aarch64 build).
+- **Shape:** Ampere `VM.Standard.A1.Flex`. 1 OCPU / 6 GB is enough (the stack is sized for it); take 2 OCPU / 12 GB if your account's sliders allow it.
+- **Networking:** `canreadit-vcn`, its **public** subnet, and **Assign a public IPv4 address**.
+- **SSH keys:** paste the public line from b.
+- **Boot volume:** 100 GB (Always Free includes 200 GB in total).
+
+**d. "Out of host capacity"** is common for free Arm VMs: Oracle has no spare machine right now. In a region with several availability domains, pick another one. In a single-domain region (Mumbai, for example), let [`launch-vm.sh`](../infra/prod/launch-vm.sh) retry every 3 minutes from **Cloud Shell** (the `>_` icon in the console), which is already signed in as you:
+
+```bash
+echo 'ssh-ed25519 AAAA… you@example.com canreadit' > ~/canreadit.pub     # the public line from b
+curl -fsSL https://raw.githubusercontent.com/atulrwt23/can-read-it/main/infra/prod/launch-vm.sh | bash
+```
+
+It creates at most one VM (named `canreadit`, settings overridable as env vars such as `OCPUS=2 MEMORY_GB=12`) and is safe to run again when Cloud Shell times out. Don't retry from the console or a Resource Manager stack at the same time, or you may end up with two VMs.
+
+**e. Optional but recommended:** upgrade the account to **Pay As You Go** with a $1 budget alert. Always Free resources stay free, Oracle no longer reclaims the VM when it looks idle, and Arm capacity is usually found much faster.
+
+**f. A shortcut** in `~/.ssh/config` on your computer, so `ssh canreadit` is all you type:
+
+```
+Host canreadit
+  HostName <the VM's public IP>
+  User ubuntu
+  IdentityFile ~/.ssh/id_ed25519_canreadit
+  IdentitiesOnly yes
+```
 
 ### 3. Bootstrap the VM
 
+Log in first, then run the setup **on the VM** (paste the two commands separately: the second one must run on the VM, not on your computer):
+
 ```bash
-ssh ubuntu@<vm-public-ip>
+ssh canreadit
 curl -fsSL https://raw.githubusercontent.com/atulrwt23/can-read-it/main/infra/prod/bootstrap.sh | sudo bash
 ```
 
-[`bootstrap.sh`](../infra/prod/bootstrap.sh) installs Docker and Oracle's `oci` CLI, clones the repository to `/opt/canreadit/repo`, creates `/opt/canreadit/secrets.conf`, and enables the deploy and backup timers. It is safe to run again.
+[`bootstrap.sh`](../infra/prod/bootstrap.sh) installs Docker and Oracle's `oci` CLI, adds 2 GB of swap, clones the repository to `/opt/canreadit/repo`, creates `/opt/canreadit/secrets.conf`, and enables the deploy and backup timers. Until the settings exist, each deploy run just reports which settings are missing. It is safe to run again, and re-running it applies later changes to the swap and the systemd units.
 
 ### 4. Put the settings in Oracle Cloud Vault
 
@@ -226,17 +259,24 @@ All production settings go into **one Vault secret** whose content is the whole 
    ```
    This grants read access to that one secret, for that one VM, and nothing else.
 
-**d. Point the VM at it:**
+Two OCIDs are involved, and swapping them is the usual mistake:
+
+| OCID | Starts with | Goes into |
+|---|---|---|
+| the VM's | `ocid1.instance.` | the dynamic group's matching rule |
+| the secret's | `ocid1.vaultsecret.` | the policy statement, and `secrets.conf` below |
+
+**d. Point the VM at it** (on the VM; paste the secret's OCID between the quotes):
 
 ```bash
-sudo nano /opt/canreadit/secrets.conf
-#   SECRETS_PROVIDER=oci-vault
-#   OCI_SECRET_ID=<secret OCID>
+SID='ocid1.vaultsecret.oc1.…'
+sudo sed -i -e 's/^SECRETS_PROVIDER=.*/SECRETS_PROVIDER=oci-vault/' -e "s|^OCI_SECRET_ID=.*|OCI_SECRET_ID=${SID#OCI_SECRET_ID=}|" /opt/canreadit/secrets.conf
+cat /opt/canreadit/secrets.conf                          # not secret: check there is one clean OCI_SECRET_ID line
 sudo /opt/canreadit/repo/infra/prod/secrets.sh check     # prints names only, never values
 sudo rm -f /opt/canreadit/.env                           # the placeholder file is no longer used
 ```
 
-`secrets.sh check` should end with "all settings present". A "NotAuthorizedOrNotFound" error usually means the policy hasn't taken effect yet (give it a minute) or an OCID doesn't match.
+`secrets.sh check` should end with "all settings the app needs are present". Until the backups bucket exists it also lists the `BACKUP_*` names, which is fine. If it can't read the Vault, it shows Oracle's error code and what to check; a new policy can take a minute or two to apply.
 
 <details>
 <summary>Alternative: keep the settings in a file on the VM instead</summary>
@@ -256,7 +296,7 @@ journalctl -fu canreadit-deploy                # watch it: pull, start, seed, he
 sudo /opt/canreadit/repo/infra/prod/tunnel-url.sh
 ```
 
-The last command prints the public address, for example `https://gentle-river-words.trycloudflare.com`. The first start takes a few minutes, because the demo seeder uploads about 900 placeholder images to R2. For the first minute after a deploy, the home page can show "The catalogue is warming up" until its cache refreshes.
+The last command prints the public address, for example `https://gentle-river-words.trycloudflare.com`. The first start takes several minutes on a 1 OCPU VM: the demo seeder uploads about 900 placeholder images to R2, and the API only reports healthy afterwards (the deploy waits up to 25 minutes for that). Follow it with `crc logs -f api`, which prints "Seeded placeholder series 3/16" and so on. For the first minute after a deploy, the home page can show "The catalogue is warming up" until its cache refreshes.
 
 ## Operating it
 
@@ -280,7 +320,7 @@ alias crc='sudo /opt/canreadit/repo/infra/prod/crc.sh'
 | Retry a release marked failed | `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force <sha>`, or push a fix (the next commit is tried automatically) |
 | Change a secret or setting | Vault → `canreadit-prod-env` → **Create Secret Version** (paste the full content), then `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force` |
 | Check the settings | `sudo /opt/canreadit/repo/infra/prod/secrets.sh check` (names only, never values) |
-| Back up now | `sudo systemctl start canreadit-backup && journalctl -u canreadit-backup -n 20` |
+| Back up now | `sudo systemctl start canreadit-backup && journalctl -u canreadit-backup -n 20` (skipped, with a message, until the `BACKUP_*` settings exist) |
 | Database shell | `crc exec postgres psql -U canreadit` |
 
 The permanent way to undo a bad change is a revert PR on `main`: it goes through CI like any other change. `--pin` is for emergencies. Remember to `--unpin` afterwards.
@@ -328,7 +368,11 @@ Old images stay in R2. Identical images are reused (storage is content-addressed
 |---|---|---|
 | New commit isn't live after 15 min | CI failed, so no images were published | Check the Actions tab. Deploys resume with the next green commit. |
 | `deploy` logs "images … not published yet" | CI still running (or failed) | Wait, or check the Actions tab ([step 5](#5-container-images)). |
-| `deploy` logs "could not read the settings from Oracle Cloud Vault" | Dynamic group or policy missing, or a wrong OCID in `secrets.conf` | Recheck [step 4c](#4-put-the-settings-in-oracle-cloud-vault). Running containers are unaffected. |
+| `deploy` logs "could not read the settings from Oracle Cloud Vault: NotAuthorizedOrNotFound" | The policy doesn't name this secret's OCID, or the dynamic group doesn't name this VM's OCID (often swapped), or a new policy hasn't applied yet | Check both against the table in [step 4](#4-put-the-settings-in-oracle-cloud-vault); wait a minute and retry. Running containers are unaffected. |
+| "OCI_SECRET_ID … must be the secret's OCID" | `secrets.conf` holds the VM's OCID, or a doubled `OCI_SECRET_ID=` | Redo [step 4d](#4-put-the-settings-in-oracle-cloud-vault). |
+| `deploy` logs "not deploying until the settings are complete" | Some setting the app needs is empty | `secrets.sh check` names it. Fill it in (new secret version); the next timer run deploys. |
+| Deploy timer runs but nothing happens, and `/opt/canreadit/state/failed` lists `main`'s SHA | That release failed its health checks once and isn't retried automatically | Fix the cause, then `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force`. |
+| `ssh` says "Permission denied (publickey)" | The VM was created with a different key (for example one Oracle generated) | In Cloud Shell, `oci compute instance list --compartment-id "$OCI_TENANCY" --display-name canreadit --query 'data[0].metadata."ssh_authorized_keys"' --raw-output` shows which public key it has; log in with the matching private key and add yours with `ssh-copy-id`. |
 | `deploy` logs "is unhealthy" and rolled back | The new release fails to start | `journalctl -u canreadit-deploy` shows the last 80 log lines of api and web. Fix and merge. |
 | Site address stopped working | cloudflared restarted (reboot, update), so the quick-tunnel address changed | Run `tunnel-url.sh` for the new one. A domain fixes this for good. |
 | Images don't load | Wrong `MEDIA_PUBLIC_BASE_URL`, or the r2.dev subdomain is disabled | Check the bucket's public access, fix the setting, then `deploy.sh --force`. |

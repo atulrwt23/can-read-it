@@ -14,6 +14,16 @@ if ! command -v docker > /dev/null; then
 fi
 systemctl enable --now docker
 
+# 2 GB of swap as a safety net: the Always Free Arm shape can be as small as 1 OCPU / 6 GB, and a
+# memory spike should slow things down rather than get a container killed.
+if ! swapon --show=NAME --noheadings | grep -qx /swapfile; then
+  [[ -f /swapfile ]] || { fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile > /dev/null; }
+  swapon /swapfile
+fi
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+echo 'vm.swappiness=10' > /etc/sysctl.d/99-canreadit.conf
+sysctl -q --system
+
 # Oracle's CLI, used to read settings from Oracle Cloud Vault with the VM's own identity.
 if ! command -v oci > /dev/null; then
   PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin pipx install --quiet oci-cli
