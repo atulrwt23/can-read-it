@@ -67,6 +67,44 @@ class ViewsIT {
     }
 
     @Test
+    void capsVisitorsFromOneAddress() {
+        var series = fx.series("ember-road").create();
+
+        for (int i = 0; i < ViewCounter.MAX_VISITORS_PER_IP + 5; i++) {
+            assertThat(view("ember-road", "203.0.113.1", BROWSER + " build/" + i))
+                    .hasStatus(204);
+        }
+        assertThat(view("ember-road", "203.0.113.2", BROWSER)).hasStatus(204);
+        assertThat(score(series.id())).isEqualTo(ViewCounter.MAX_VISITORS_PER_IP + 1);
+    }
+
+    @Test
+    void rateLimitsEachAddress() {
+        fx.series("ember-road").create();
+
+        // The bucket refills gradually, so a few more than its capacity may pass while the test runs.
+        long accepted = 0;
+        org.springframework.test.web.servlet.assertj.MvcTestResult result;
+        while ((result = view("ember-road", "203.0.113.1", BROWSER))
+                        .getResponse()
+                        .getStatus()
+                == 204) {
+            accepted++;
+            assertThat(accepted).isLessThan(ViewController.PER_IP.capacity() + 20);
+        }
+        assertThat(accepted).isGreaterThanOrEqualTo(ViewController.PER_IP.capacity());
+        assertThat(result)
+                .hasStatus(429)
+                .satisfies(r ->
+                        assertThat(r.getResponse().getHeader("Retry-After")).isNotBlank())
+                .bodyJson()
+                .extractingPath("$.code")
+                .isEqualTo("rate_limited");
+        // Other addresses have their own bucket.
+        assertThat(view("ember-road", "203.0.113.2", BROWSER)).hasStatus(204);
+    }
+
+    @Test
     void ignoresCrawlers() {
         var series = fx.series("ember-road").create();
 

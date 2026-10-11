@@ -4,6 +4,7 @@ spring-boot = "4.1.1"
 spring-modulith = "2.1.1"
 springdoc = "3.1.1"
 aws-sdk = "2.55.6"
+bucket4j = "8.21.0"
 spotless = "8.10.3"
 palantir-java-format = "2.99.0"
 
@@ -27,6 +28,7 @@ spring-modulith-starter-test = { module = "org.springframework.modulith:spring-m
 springdoc-openapi-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 aws-sdk-s3 = { module = "software.amazon.awssdk:s3" }
 aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client" }
+bucket4j-lettuce = { module = "com.bucket4j:bucket4j_jdk17-lettuce", version.ref = "bucket4j" }
 
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
