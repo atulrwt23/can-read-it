@@ -123,13 +123,13 @@ flowchart TD
 
 | Container | Image | Memory limit | Notes |
 |---|---|---|---|
-| `cloudflared-quick` | `cloudflare/cloudflared` | 256 MB | Quick tunnel. Its address changes whenever this container restarts. |
+| `cloudflared-quick` | `cloudflare/cloudflared` | none (~50 MB) | Quick tunnel. Its address changes whenever this container restarts. |
 | `web` | `ghcr.io/atulrwt23/can-read-it-web:<sha>` | 1 GB | Next.js standalone, non-root, `/healthz` health check. |
 | `api` | `ghcr.io/atulrwt23/can-read-it-api:<sha>` | 2 GB | Spring Boot (`prod,demo` profiles), non-root, read-only filesystem. The JVM heap is 75% of the limit. |
 | `postgres` | `postgres:18.6-alpine` | 1.5 GB | `shared_buffers` 512 MB. Data in the `canreadit-prod_postgres-data` volume. |
 | `redis` | `redis:8.10.2-alpine` | 320 MB | Unused until step 2. |
 
-The limits add up to about 5.1 GB, so the stack fits the smallest Always Free Arm shape (1 OCPU / 6 GB), and `bootstrap.sh` adds 2 GB of swap as a safety net. A running demo stack actually uses about 1 GB. On a 12 GB VM the limits (and `shared_buffers`) can be doubled in `compose.yml`.
+The limits add up to about 4.9 GB, so the stack fits the smallest Always Free Arm shape (1 OCPU / 6 GB), and `bootstrap.sh` adds 2 GB of swap as a safety net. A running demo stack actually uses about 1 GB. On a 12 GB VM the limits (and `shared_buffers`) can be doubled in `compose.yml`.
 
 Files on the VM:
 

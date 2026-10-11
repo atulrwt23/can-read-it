@@ -155,7 +155,7 @@ VM memory budget (container limits for the 6 GB VM; double them on 12 GB):
 | JVM | 2 GB (heap 75% of it) |
 | Next.js | 1 GB |
 | Redis | 320 MB (`maxmemory` 256 MB) |
-| cloudflared | 256 MB |
+| cloudflared | about 50 MB (no limit) |
 | OS, page cache, headroom | the rest, plus 2 GB of swap |
 
 ### Public launch (planned, not decided)
