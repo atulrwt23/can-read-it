@@ -1,6 +1,9 @@
 # Beta stack on the Oracle Always Free Arm VM (CLAUDE.md section 9, docs/deploy.md).
-# Driven by deploy.sh; secrets come from /opt/canreadit/.env (see .env.example), never from git.
-# No service publishes a port to the internet: traffic arrives through the Cloudflare Tunnel.
+# Driven by deploy.sh; settings come from Oracle Cloud Vault (or /opt/canreadit/.env), see
+# .env.example, never from git. No service publishes a port to the internet: traffic arrives
+# through the Cloudflare Tunnel.
+# Memory limits total about 5.1 GB so the stack fits the smallest Always Free Arm shape
+# (1 OCPU / 6 GB) with room for the OS. On a 12 GB VM they can be doubled.
 name: canreadit-prod
 
 x-defaults: &defaults
@@ -18,7 +21,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:?}
       POSTGRES_USER: ${POSTGRES_USER:?}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
-    command: ["postgres", "-c", "shared_buffers=1GB", "-c", "effective_cache_size=3GB", "-c", "max_connections=50"]
+    command: ["postgres", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=2GB", "-c", "max_connections=50"]
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
@@ -26,7 +29,7 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-    mem_limit: 3g
+    mem_limit: 1536m
 
   redis:
     <<: *defaults
@@ -62,7 +65,8 @@ services:
     tmpfs:
       - /tmp
     cap_drop: [ALL]
-    mem_limit: 2560m
+    # The JVM sizes its heap to 75% of this (MaxRAMPercentage in the image).
+    mem_limit: 2g
 
   web:
     <<: *defaults
@@ -79,6 +83,7 @@ services:
     image: cloudflare/cloudflared:2026.9.3
     profiles: ["quick"]
     command: ["tunnel", "--no-autoupdate", "--metrics", "0.0.0.0:2000", "--url", "http://web:3000"]
+    mem_limit: 256m
     ports:
       - "127.0.0.1:2000:2000"
     depends_on:
@@ -91,6 +96,7 @@ services:
     image: cloudflare/cloudflared:2026.9.3
     profiles: ["named"]
     command: ["tunnel", "--no-autoupdate", "run"]
+    mem_limit: 256m
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:-}
     depends_on:
