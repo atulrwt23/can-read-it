@@ -9,6 +9,11 @@ spring:
   threads:
     virtual:
       enabled: true
+  data:
+    redis:
+      # Cache, view counters and rate-limit buckets: data that may be lost (docs/architecture.md).
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   datasource:
     url: ${DB_URL}
     username: ${POSTGRES_USER}

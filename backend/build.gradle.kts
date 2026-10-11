@@ -39,6 +39,7 @@ dependencies {
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.spring.modulith.starter.jdbc)
     implementation(libs.springdoc.openapi.webmvc.ui)

@@ -1,0 +1,4 @@
+# Integration tests run scheduled jobs by calling them directly, so they don't fire on their own.
+app:
+  scheduling:
+    enabled: false
