@@ -236,6 +236,7 @@ All production settings go into **one Vault secret** whose content is the whole 
 - **`REVALIDATE_SECRET`** (optional): generate one with `openssl rand -hex 32`. With it, a newly published chapter shows on cached pages within seconds instead of about a minute.
 - **`AUTH_JWT_PRIVATE_KEY`** (optional): the key that signs sign-in tokens; see [Sign-in settings](#sign-in-settings).
 - **`TURNSTILE_SECRET_KEY`** (optional): turns on the bot check for sign-up; see [Sign-in settings](#sign-in-settings).
+- **`SMTP_*` and `MAIL_FROM`** (optional): email for sign-in codes and password resets; see [Email settings](#email-settings).
 - **`S3_*`, `MEDIA_PUBLIC_BASE_URL` and `BACKUP_*`:** the values from step 1. The `BACKUP_*` values can stay empty until you create the backups bucket; only the nightly backup fails until then.
 - **Leave as they are:** `IMAGE_REGISTRY`, `COMPOSE_PROFILES=quick` and `SPRING_PROFILES_ACTIVE=prod,demo`.
 
@@ -340,6 +341,26 @@ Both are optional, so the beta deploys without them. Add them to the Vault secre
   ```
   Replacing it later has the same effect as a restart: browsers renew once. The public half is served at `/.well-known/jwks.json`.
 - **`TURNSTILE_SECRET_KEY`** turns on the bot check for sign-up. Create a widget in Cloudflare → **Turnstile** for your site's hostname; the secret key goes here, and the site key goes to the web app once its sign-up page exists. Without a secret the check is off. With one, a failed or unreachable check refuses the sign-up.
+
+### Email settings
+
+Sign-in codes, email confirmation and password resets go out over SMTP. Without `SMTP_HOST` the API logs each email's subject and drops it, so readers can only sign up and sign in with a password. A mail outage never makes the API unhealthy; failed sends are logged.
+
+Sending to readers needs a domain, because the provider must verify the sender's domain (SPF and DKIM records). Once you have one, with [Resend](https://resend.com) (free tier):
+
+1. Resend → **Domains → Add domain**, then add the DNS records it lists (in Cloudflare → your domain → **DNS**), and wait until it shows *Verified*.
+2. Resend → **API Keys → Create API key** with *Sending access* only. Paste it straight into the Vault secret.
+3. Add to the Vault secret (**Create Secret Version**), then `deploy.sh --force`:
+   ```
+   SMTP_HOST=smtp.resend.com
+   SMTP_PORT=587
+   SMTP_USERNAME=resend
+   SMTP_PASSWORD=<the API key>
+   MAIL_FROM=CanReadIt <no-reply@your-domain>
+   ```
+4. Check: ask for a sign-in code on the site, then `crc logs --since 5m api | grep -i email` should show no warnings.
+
+Any SMTP provider works the same way (port 587 with STARTTLS); only these settings change.
 
 ### Restore a backup
 
