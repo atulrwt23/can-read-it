@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # "Run workflow" in the Actions tab: rebuilds and publishes a commit whose push event GitHub dropped.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -137,7 +139,7 @@ jobs:
   images:
     name: Image ${{ matrix.app }} (${{ matrix.arch }})
     needs: [backend, web, e2e]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write

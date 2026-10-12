@@ -319,6 +319,7 @@ alias crc='sudo /opt/canreadit/repo/infra/prod/crc.sh'
 | Deploy now | `sudo systemctl start canreadit-deploy` |
 | Roll back to an older release | `sudo /opt/canreadit/repo/infra/prod/deploy.sh --pin <sha>` (the timer then leaves it alone) |
 | Resume following `main` | `sudo /opt/canreadit/repo/infra/prod/deploy.sh --unpin` |
+| A merged commit never got a CI run (no images, so no deploy) | GitHub → **Actions** → **CI** → **Run workflow** on `main`. It tests, builds and publishes the current `main`; the VM deploys it within a few minutes |
 | Retry a release marked failed | `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force <sha>`, or push a fix (the next commit is tried automatically) |
 | Change a secret or setting | Vault → `canreadit-prod-env` → **Create Secret Version** (paste the full content), then `sudo /opt/canreadit/repo/infra/prod/deploy.sh --force` |
 | Check the settings | `sudo /opt/canreadit/repo/infra/prod/secrets.sh check` (names only, never values) |
