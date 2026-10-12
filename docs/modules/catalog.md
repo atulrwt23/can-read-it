@@ -14,17 +14,17 @@
 - **Series visibility:** `PUBLISHED` is listed; `UNLISTED` works by link; `DRAFT` answers 404; `REMOVED` answers 410. Old slugs answer 301 to the same path under the current slug.
 - **Chapter visibility (ADR 0006):** `status <> 'DRAFT' and publish_at <= now()`, applied in every chapter query (`SeriesRepository.VISIBLE_CHAPTER`).
 - **Scheduled publishing:** `ChapterPublisher` runs every minute (`app.catalog.publish-interval`). It locks due `SCHEDULED` chapters (`for update skip locked`, so several instances never publish one twice), sets `status = PUBLISHED` and `published_at = publish_at`, raises `series.last_published_at` for original-edition chapters, and publishes `ChapterPublished` through the Modulith outbox. Visibility never waits for it.
-- **Search:** case-insensitive substring match on title and alt titles (served by a trigram index over `catalog.search_text(title, alt_titles)`), plus whole-word full-text on `synopsis` (`simple` config: no stemming). It does not tolerate typos yet.
+- **Search:** a series matches when its title or alt titles contain the text (case-insensitive), are close to it word by word (pg_trgm `<%`, word similarity ≥ 0.6, so one typo per word still matches: "towr climber" finds "The Tower Climber"), or its synopsis has all the words (`simple` full-text config, no stemming). All three use indexes (the trigram index over `catalog.search_text(title, alt_titles)` and a GIN index on the synopsis). Results come best match first by default: a substring match scores 1, a near miss its word similarity, a synopsis-only match 0.5.
 - Read queries use `JdbcClient` with keyset pagination; cursors are opaque (`shared.Cursors`).
 
 ## Endpoints
 | Route | Notes |
 |---|---|
 | `GET /api/v1/genres` | cached 1 h at the CDN |
-| `GET /api/v1/series` | `q`, `type`, `status`, `genres` (all must match), `sort` (`UPDATED`, `NEWEST`, `TITLE`, `POPULAR`: 7-day views), `cursor`, `limit` ≤ 50 |
+| `GET /api/v1/series` | `q`, `type`, `status`, `genres` (all must match), `sort` (`RELEVANCE`: the default with `q`; `UPDATED`: the default without; `NEWEST`, `TITLE`, `POPULAR`: 7-day views), `cursor`, `limit` ≤ 50. The first page (no cursor) also carries `total`, the number of matches |
 | `GET /api/v1/series/{slug}` | detail, editions, visible-chapter stats |
 | `GET /api/v1/series/{slug}/chapters` | `lang`, `order` (`DESC`, `ASC`), `cursor`, `limit` ≤ 200 |
-| `GET /api/v1/series/{slug}/chapters/{number}` | pages (URL + size) or novel Markdown, `previous`/`next`; early access is returned `locked` without content |
+| `GET /api/v1/series/{slug}/chapters/{number}` | pages (URL + size) or novel Markdown, `previous`/`next`, and the series' slug, title, type and cover; early access is returned `locked` without content |
 
 ## Local seed
 `LocalCatalogSeeder` (profile `local`, empty catalog only) creates 16 invented series with generated PNG covers and pages, stored through `media.MediaUploads`.
