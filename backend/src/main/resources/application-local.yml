@@ -6,6 +6,8 @@ spring:
     password: ${POSTGRES_PASSWORD:canreadit}
 
 app:
+  cookies:
+    secure: false
   media:
     public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:8333/canreadit-media}
     s3:
