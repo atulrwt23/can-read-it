@@ -417,7 +417,7 @@ All of it costs $0. Every piece can be swapped by configuration.
 
 **Phase 1 (MVP: a readable product)**
 1. **Skeleton + catalog read slice** (done)
-2. **Identity** (all sign-in methods, tokens, sessions, account page) (done: 2a sessions and password sign-in, 2b email codes, confirmation and password reset, 2c Google and Apple sign-in, off until client IDs are configured, 2d account management, 2e web sign-in, sign-up, reset and account pages) and `proxy.ts` refresh
+2. **Identity** (all sign-in methods, tokens, sessions, account page) (done: 2a sessions and password sign-in, 2b email codes, confirmation and password reset, 2c Google and Apple sign-in, off until client IDs are configured, 2d account management, 2e web sign-in, sign-up, reset and account pages; session renewal happens in the browser, not `proxy.ts`)
 3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done) ← next
 4. Reading: library, follows, progress sync, guest history import
 5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`) (SEO basics and the beta deployment are done; analytics events remain)
