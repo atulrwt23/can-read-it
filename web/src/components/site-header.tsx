@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BRAND_NAME } from "@/lib/brand";
+import { AccountMenu, AccountMenuItems } from "./auth/account-menu";
 import { SearchBox } from "./search-box";
 import { ThemeToggle } from "./theme-toggle";
 
@@ -50,12 +51,7 @@ export function SiteHeader() {
             </svg>
           </Link>
           <ThemeToggle />
-          <Link
-            href="/login"
-            className="hidden rounded bg-primary px-3 py-1.5 text-sm font-semibold text-on-primary hover:brightness-95 md:inline-block"
-          >
-            Sign in
-          </Link>
+          <AccountMenu />
           <button
             type="button"
             popoverTarget="mobile-menu"
@@ -82,7 +78,7 @@ export function SiteHeader() {
         className="m-0 mt-14 ml-auto w-56 rounded-md border border-line bg-surface p-2 text-text shadow-card"
       >
         <ul>
-          {[...NAV, { href: "/login", label: "Sign in" }].map((item) => (
+          {NAV.map((item) => (
             <li key={item.href}>
               <Link
                 href={item.href}
@@ -92,6 +88,9 @@ export function SiteHeader() {
               </Link>
             </li>
           ))}
+          <li>
+            <AccountMenuItems />
+          </li>
         </ul>
       </nav>
     </header>
