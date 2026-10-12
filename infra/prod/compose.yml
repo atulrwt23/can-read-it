@@ -80,6 +80,7 @@ services:
     image: ${IMAGE_REGISTRY:?}/can-read-it-web:${IMAGE_TAG:-main}
     environment:
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+      SITE_URL: ${SITE_URL:-}
     depends_on:
       - api
     cap_drop: [ALL]

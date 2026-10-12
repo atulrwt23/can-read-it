@@ -10,6 +10,7 @@ import { ViewBeacon } from "@/components/reader/view-beacon";
 import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
 import { getChapter, getChapters, REMOVED, removedSeries } from "@/lib/api/server";
 import { chapterPath, seriesPath } from "@/lib/routes";
+import { canonical } from "@/lib/site";
 
 export const revalidate = 300;
 
@@ -24,7 +25,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, number } = await params;
   const chapter = await getChapter(slug, number).catch(removedSeries);
   if (chapter === REMOVED) return removedMetadata;
-  return { title: `${chapter.series.title} · Chapter ${chapter.number}` };
+  const title = `${chapter.series.title} · Chapter ${chapter.number}`;
+  return {
+    title,
+    description: `Read chapter ${chapter.number} of ${chapter.series.title}${chapter.title ? `: ${chapter.title}` : ""}.`,
+    ...canonical(chapterPath(slug, chapter.number)),
+    // Early-access chapters show no content yet: nothing to index.
+    ...(chapter.locked ? { robots: { index: false, follow: true } } : {}),
+  };
 }
 
 export default async function ChapterPage({ params }: Props) {

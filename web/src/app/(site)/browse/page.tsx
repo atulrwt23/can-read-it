@@ -5,14 +5,22 @@ import { LoadMoreSeries } from "@/components/browse/load-more-series";
 import { SeriesGridCard } from "@/components/series-grid-card";
 import { browseSeries, getGenres } from "@/lib/api/server";
 import { hasFilters, parseBrowseParams } from "@/lib/browse-params";
+import { canonical } from "@/lib/site";
 
-export const metadata: Metadata = { title: "Browse" };
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export default async function BrowsePage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+/** Every filtered view points to /browse as canonical; search results are not worth indexing. */
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = parseBrowseParams(await searchParams);
+  return {
+    title: params.q ? `Results for “${params.q}”` : "Browse",
+    description: "Browse manhwa and web novels by type, status and genre.",
+    ...canonical("/browse"),
+    ...(params.q ? { robots: { index: false, follow: true } } : {}),
+  };
+}
+
+export default async function BrowsePage({ searchParams }: Props) {
   const params = parseBrowseParams(await searchParams);
   const [page, genres] = await Promise.all([browseSeries({ ...params, limit: 24 }), getGenres()]);
 
