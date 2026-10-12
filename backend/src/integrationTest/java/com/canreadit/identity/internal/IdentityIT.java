@@ -214,6 +214,18 @@ class IdentityIT extends IdentityTestSupport {
     }
 
     @Test
+    void publicReadsNeverSetCookies() {
+        var genres = mvc.get().uri("/api/v1/genres").exchange();
+        assertThat(genres).hasStatusOk();
+        assertThat(genres.getResponse().getHeaders(HttpHeaders.SET_COOKIE)).isEmpty();
+
+        // Everything else hands out the CSRF cookie, signed in or not.
+        assertThat(csrfCookie()).isNotNull();
+        assertThat(login("nobody@example.com", PASSWORD).getResponse().getCookie("XSRF-TOKEN"))
+                .isNotNull();
+    }
+
+    @Test
     void publicPagesIgnoreAStaleAccessCookie() {
         assertThat(mvc.get().uri("/api/v1/genres").cookie(new Cookie(AuthCookies.ACCESS, "expired.or.garbage")))
                 .hasStatusOk();

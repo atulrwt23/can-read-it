@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +29,10 @@ import org.springframework.security.oauth2.server.resource.web.BearerTokenResolv
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
+import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -79,7 +84,8 @@ class SecurityConfig {
 
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(csrf -> {
-                    csrf.spa().csrfTokenRepository(csrfRepository);
+                    csrf.csrfTokenRepository(csrfRepository)
+                            .csrfTokenRequestHandler(new SpaCsrfHandler(publicRoutes(publicGets, new String[0])));
                     csrf.ignoringRequestMatchers(request -> request.getHeader(HttpHeaders.AUTHORIZATION) != null);
                     if (csrfFreePosts.length > 0) {
                         csrf.ignoringRequestMatchers(csrfFreePosts);
@@ -119,6 +125,42 @@ class SecurityConfig {
             matchers.add(builder.matcher(HttpMethod.POST, pattern));
         }
         return new OrRequestMatcher(matchers);
+    }
+
+    /**
+     * Single-page-app CSRF handling, like {@code csrf.spa()}, except that public reads never set the cookie. The
+     * stock handler writes a new {@code XSRF-TOKEN} cookie on every response that lacks one, so cacheable public
+     * responses would carry {@code Set-Cookie}, and a shared cache could hand one token to everyone. The browser gets
+     * its token from any other response instead: {@code GET /api/v1/me} or a sign-in.
+     */
+    static final class SpaCsrfHandler implements CsrfTokenRequestHandler {
+
+        private final CsrfTokenRequestAttributeHandler plain = new CsrfTokenRequestAttributeHandler();
+        private final XorCsrfTokenRequestAttributeHandler xor = new XorCsrfTokenRequestAttributeHandler();
+        private final RequestMatcher publicRead;
+
+        SpaCsrfHandler(RequestMatcher publicRead) {
+            this.publicRead = publicRead;
+        }
+
+        @Override
+        public void handle(HttpServletRequest request, HttpServletResponse response, Supplier<CsrfToken> token) {
+            // BREACH protection for a token rendered into a page; our client reads the cookie instead.
+            xor.handle(request, response, token);
+            if (!publicRead.matches(request)) {
+                // Load the deferred token, which writes the cookie if the request had none.
+                token.get();
+            }
+        }
+
+        @Override
+        public @Nullable String resolveCsrfTokenValue(HttpServletRequest request, CsrfToken token) {
+            // A header holds the raw cookie value (double submit); a form parameter holds the masked one.
+            String header = request.getHeader(token.getHeaderName());
+            return header != null && !header.isBlank()
+                    ? plain.resolveCsrfTokenValue(request, token)
+                    : xor.resolveCsrfTokenValue(request, token);
+        }
     }
 
     /**
