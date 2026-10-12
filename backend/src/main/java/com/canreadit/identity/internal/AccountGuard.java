@@ -39,12 +39,37 @@ class AccountGuard {
     }
 
     /**
+     * Whether the user may sign in. Signing in while the account waits for deletion cancels the deletion (the
+     * grace period exists for exactly that). Suspended, banned and deleted accounts may not.
+     */
+    boolean admit(UserAccount user, ClientInfo client, Instant now) {
+        return switch (user.status()) {
+            case ACTIVE -> true;
+            case PENDING_DELETION -> {
+                user.cancelDeletion(now);
+                events.record(AuthEventLog.Type.DELETION_CANCELLED, user.getId(), client);
+                yield true;
+            }
+            case SUSPENDED, BANNED, DELETED -> false;
+        };
+    }
+
+    /** Whether emails that lead to a sign-in (codes, resets) may go to this account. */
+    static boolean mayReturn(UserAccount user) {
+        return user.status() == UserStatus.ACTIVE || user.status() == UserStatus.PENDING_DELETION;
+    }
+
+    /**
      * A random handle for accounts made without a sign-up form. It never comes from the email, which would make part
      * of a private address public. TODO(product): let readers choose it at sign-up (the web form can send one).
      */
     String newHandle() {
+        return randomHandle("reader_");
+    }
+
+    String randomHandle(String prefix) {
         for (int i = 0; i < 5; i++) {
-            var handle = new StringBuilder("reader_");
+            var handle = new StringBuilder(prefix);
             for (int j = 0; j < 8; j++) {
                 handle.append(HANDLE_ALPHABET.charAt(RANDOM.nextInt(HANDLE_ALPHABET.length())));
             }

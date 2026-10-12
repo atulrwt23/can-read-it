@@ -26,7 +26,11 @@ class AuthEventLog {
         PASSWORD_REMOVED,
         SESSIONS_REVOKED,
         IDENTITY_LINKED,
-        IDENTITY_UNLINKED
+        IDENTITY_UNLINKED,
+        PASSWORD_CHANGED,
+        PROFILE_CHANGED,
+        DELETION_REQUESTED,
+        DELETION_CANCELLED
     }
 
     private final JdbcClient jdbc;

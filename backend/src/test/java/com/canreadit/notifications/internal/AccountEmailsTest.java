@@ -12,7 +12,10 @@ import org.junit.jupiter.params.provider.EnumSource;
 class AccountEmailsTest {
 
     @ParameterizedTest
-    @EnumSource(value = Kind.class, names = "ACCOUNT_EXISTS", mode = EnumSource.Mode.EXCLUDE)
+    @EnumSource(
+            value = Kind.class,
+            names = {"ACCOUNT_EXISTS", "DELETION_SCHEDULED"},
+            mode = EnumSource.Mode.EXCLUDE)
     void codeEmailsShowTheCodeAndItsLifetime(Kind kind) {
         var email = AccountEmails.render(
                 new AccountEmailRequested("ana@example.com", kind, "042917", Duration.ofMinutes(10)), "CanReadIt");
@@ -38,5 +41,15 @@ class AccountEmailsTest {
                         .toString())
                 .doesNotContain("042917")
                 .doesNotContain("ana@example.com");
+    }
+
+    @Test
+    void theDeletionNoticeSaysWhenAndHowToCancel() {
+        var email = AccountEmails.render(
+                new AccountEmailRequested("ana@example.com", Kind.DELETION_SCHEDULED, null, Duration.ofDays(30)),
+                "CanReadIt");
+
+        assertThat(email.subject()).isEqualTo("Your CanReadIt account will be deleted");
+        assertThat(email.text()).contains("30 days").contains("Sign in before then");
     }
 }

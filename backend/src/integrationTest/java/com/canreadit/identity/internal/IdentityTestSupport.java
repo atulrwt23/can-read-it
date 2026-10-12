@@ -7,6 +7,7 @@ import com.canreadit.TestcontainersConfiguration;
 import com.canreadit.shared.AuthCookies;
 import jakarta.servlet.http.Cookie;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +15,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -83,6 +85,16 @@ abstract class IdentityTestSupport {
     /** The XSRF-TOKEN cookie every response hands out. */
     Cookie csrfCookie() {
         return mvc.get().uri("/api/v1/genres").exchange().getResponse().getCookie("XSRF-TOKEN");
+    }
+
+    /** A signed-in write: the access cookie plus the CSRF cookie and header. */
+    MvcTestResult write(HttpMethod method, String uri, Cookie access, @Nullable Object body) {
+        Cookie csrf = csrfCookie();
+        var request = mvc.method(method).uri(uri).cookie(access, csrf).header("X-XSRF-TOKEN", csrf.getValue());
+        if (body != null) {
+            request = request.contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body));
+        }
+        return request.exchange();
     }
 
     MvcTestResult post(String uri, Map<String, String> body) {

@@ -108,7 +108,7 @@ class SocialSignInService {
             Optional<UserAccount> sameEmail = users.findByEmail(token.email());
             if (sameEmail.isPresent()) {
                 UserAccount user = sameEmail.get();
-                if (user.status() != UserStatus.ACTIVE) {
+                if (!guard.admit(user, client, now)) {
                     return Outcome.failed(AuthErrors.accountUnavailable());
                 }
                 if (!user.emailVerified()) {
@@ -214,7 +214,7 @@ class SocialSignInService {
     }
 
     private Outcome<SignedIn> admit(UserAccount user, ClientInfo client, Instant now) {
-        if (user.status() != UserStatus.ACTIVE) {
+        if (!guard.admit(user, client, now)) {
             return Outcome.failed(AuthErrors.accountUnavailable());
         }
         events.record(AuthEventLog.Type.SIGNED_IN, user.getId(), client);

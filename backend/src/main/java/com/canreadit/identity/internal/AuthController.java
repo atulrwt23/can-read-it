@@ -28,8 +28,15 @@ class AuthController {
     private final EmailCodeService codes;
     private final SocialSignInService social;
     private final AuthCookieWriter cookies;
+    private final AccountViews views;
 
-    AuthController(AuthService auth, EmailCodeService codes, SocialSignInService social, AuthCookieWriter cookies) {
+    AuthController(
+            AuthService auth,
+            EmailCodeService codes,
+            SocialSignInService social,
+            AuthCookieWriter cookies,
+            AccountViews views) {
+        this.views = views;
         this.auth = auth;
         this.codes = codes;
         this.social = social;
@@ -143,7 +150,7 @@ class AuthController {
 
     private ResponseEntity<MeResponse> signedIn(HttpServletResponse response, SignedIn signedIn) {
         cookies.write(response, signedIn);
-        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(MeResponse.of(signedIn.user()));
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(views.of(signedIn.user()));
     }
 
     private static ResponseEntity<Void> accepted() {
