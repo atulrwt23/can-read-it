@@ -84,10 +84,11 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       # bucket-init runs in the foreground, so its exit code fails this step if the bucket can't be made.
-      - name: Start Postgres, Redis and SeaweedFS, and create the bucket
+      # Mailpit catches the sign-in codes the auth tests read back.
+      - name: Start Postgres, Redis, SeaweedFS and Mailpit, and create the bucket
         run: |
           cp infra/local/.env.example infra/local/.env
-          docker compose -f infra/local/docker-compose.yml up -d postgres redis seaweedfs
+          docker compose -f infra/local/docker-compose.yml up -d postgres redis seaweedfs mailpit
           docker compose -f infra/local/docker-compose.yml run --rm bucket-init
       - name: Build the API
         working-directory: backend

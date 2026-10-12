@@ -32,3 +32,33 @@ export async function expectAccessibleInBothThemes(page: Page) {
     await expectAccessible(page);
   }
 }
+
+const MAILPIT = process.env.E2E_MAILPIT_URL ?? "http://localhost:8025";
+
+/** A fresh address for each test run, so runs never collide. */
+export function uniqueEmail(label: string): string {
+  return `${label}-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+}
+
+/**
+ * The 6-digit code in the newest email to this address, from Mailpit (the local SMTP catcher). Account emails go
+ * out asynchronously, so this waits for one to arrive; `after` skips emails that were already there.
+ */
+export async function codeFromInbox(email: string, after = 0): Promise<string> {
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    const search = await fetch(
+      `${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`,
+    );
+    const found = (await search.json()) as { messages: { ID: string }[] };
+    const newest = found.messages[0];
+    if (newest && found.messages.length > after) {
+      const message = await fetch(`${MAILPIT}/api/v1/message/${newest.ID}`);
+      const { Text } = (await message.json()) as { Text: string };
+      const code = Text.match(/\b(\d{6})\b/)?.[1];
+      if (code) return code;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`No code arrived for ${email}`);
+}
