@@ -30,7 +30,7 @@ The platform only hosts content we have the rights to publish: original work, li
 | Backend shape | Spring Boot **modular monolith** (Spring Modulith). Split out services only when a module needs independent scaling (media processing and notification fan-out are the likely first candidates) ([ADR 0001](docs/decisions/0001-modular-monolith.md)) |
 | Database | **PostgreSQL 18**, one schema per module, no cross-schema foreign keys ([ADR 0003](docs/decisions/0003-postgres-schema-per-module-uuidv7.md)) |
 | Sign-in | Email + password, email one-time code, Google, Apple. **Reading never requires an account** |
-| Sessions | Short-lived JWT access token + rotating opaque refresh token (details in section 7) |
+| Sessions | Short-lived JWT access token + rotating opaque refresh token (details in section 7). A spent refresh token presented again within 20 s is a race between tabs (`409`, session kept); later, it revokes the session. Cookie-authenticated writes carry the `XSRF-TOKEN` double-submit header ([docs/modules/identity.md](docs/modules/identity.md)) |
 | IDs | UUIDv7 everywhere (time-ordered, index-friendly), generated in the application. `uuidv7()` is the column default only for rows inserted by SQL |
 | Content model | Series → Edition (one per language) → Chapter. Designed in from day one even if we launch with one language |
 | Chapter numbers | Decimal (`12.5` for extras), stored as `numeric(8,2)`, shown without trailing zeros |
@@ -63,7 +63,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 - Spring Boot 4.x, Gradle with **Kotlin DSL** and a version catalog (`gradle/libs.versions.toml`), a single Gradle project (modules are packages, enforced by Spring Modulith)
 - Spring Web MVC with virtual threads enabled (`spring.threads.virtual.enabled=true`)
 - Spring Security 7 (lambda DSL only), OAuth2 resource server for our own JWTs, Nimbus JOSE for signing
-- Spring Data JPA (Hibernate) for aggregates the app writes, `JdbcClient` for read models and list queries (keyset pagination, trigram search), PostgreSQL 18, Flyway migrations. Step 1 is read-only, so JPA is added with the first write path
+- Spring Data JPA (Hibernate) for aggregates the app writes, `JdbcClient` for read models and list queries (keyset pagination, trigram search), PostgreSQL 18, Flyway migrations. JPA arrived with the first write path (identity, step 2a)
 - Spring Data Redis (cache, counters, rate limits, token denylist), Bucket4j for rate limiting
 - Spring Modulith (module verification, event publication registry, `@ApplicationModuleListener`)
 - springdoc-openapi (OpenAPI spec at `/v3/api-docs`, used to generate the web client types)
@@ -262,7 +262,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 - Retention: a scheduled job deletes expired `verification_codes` and `refresh_tokens`, and `auth_events` older than the retention window (`TODO(product):` pick the window; default 180 days).
 
 ### Tokens and sessions
-- **Access token:** JWT signed with ES256, 15-minute lifetime. Claims: `sub`, `sid`, `roles`, `ev` (email verified), `iat`, `exp`, plus `kid` in the header. Public keys are published at `/.well-known/jwks.json`. In the `local` profile, generate a key pair at startup; in `prod`, load it from a secret.
+- **Access token:** JWT signed with ES256, 15-minute lifetime. Claims: `sub`, `sid`, `roles`, `ev` (email verified), `iat`, `exp`, plus `kid` in the header. Public keys are published at `/.well-known/jwks.json`. In `prod`, load it from a secret (`AUTH_JWT_PRIVATE_KEY`); without one (and in the `local` profile) the API generates a key pair at startup and logs a warning, so tokens don't survive a restart.
 - **Refresh token:** 256-bit random opaque string, stored hashed, 30-day sliding lifetime, **rotated on every use**. If an already-used refresh token is presented again, revoke the whole session (it was probably stolen).
 - **Web:** both tokens live in `httpOnly`, `Secure` (except in the local profile), `SameSite=Lax` cookies. The refresh cookie's path is `/api/v1/auth/refresh`. State-changing requests carry a CSRF token (double-submit cookie).
 - **Mobile (later):** the refresh token goes in the Keychain or Keystore, and the access token is sent as `Authorization: Bearer`.
@@ -413,8 +413,8 @@ All of it costs $0. Every piece can be swapped by configuration.
 ## 11. Roadmap and current focus
 
 **Phase 1 (MVP: a readable product)**
-1. **Skeleton + catalog read slice** ← current
-2. Identity (all sign-in methods, tokens, sessions, account page)
+1. **Skeleton + catalog read slice** (done)
+2. **Identity** (all sign-in methods, tokens, sessions, account page) ← current. 2a sessions and password sign-in is done; next are 2b email codes, 2c Google and Apple, 2d account management, 2e web pages and `proxy.ts` refresh
 3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done)
 4. Reading: library, follows, progress sync, guest history import
 5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`) (SEO basics and the beta deployment are done; analytics events remain)

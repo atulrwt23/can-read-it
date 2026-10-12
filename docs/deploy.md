@@ -234,6 +234,8 @@ All production settings go into **one Vault secret** whose content is the whole 
 - **`POSTGRES_PASSWORD`:** generate one with `openssl rand -base64 32 | tr -d '/+='`.
 - **`SITE_URL`** (optional): the public address once you have a domain, for example `https://canreadit.example`. It turns on canonical URLs and absolute sitemap entries. Leave it empty on a quick tunnel, whose address changes.
 - **`REVALIDATE_SECRET`** (optional): generate one with `openssl rand -hex 32`. With it, a newly published chapter shows on cached pages within seconds instead of about a minute.
+- **`AUTH_JWT_PRIVATE_KEY`** (optional): the key that signs sign-in tokens; see [Sign-in settings](#sign-in-settings).
+- **`TURNSTILE_SECRET_KEY`** (optional): turns on the bot check for sign-up; see [Sign-in settings](#sign-in-settings).
 - **`S3_*`, `MEDIA_PUBLIC_BASE_URL` and `BACKUP_*`:** the values from step 1. The `BACKUP_*` values can stay empty until you create the backups bucket; only the nightly backup fails until then.
 - **Leave as they are:** `IMAGE_REGISTRY`, `COMPOSE_PROFILES=quick` and `SPRING_PROFILES_ACTIVE=prod,demo`.
 
@@ -327,6 +329,17 @@ alias crc='sudo /opt/canreadit/repo/infra/prod/crc.sh'
 | Database shell | `crc exec postgres psql -U canreadit` |
 
 The permanent way to undo a bad change is a revert PR on `main`: it goes through CI like any other change. `--pin` is for emergencies. Remember to `--unpin` afterwards.
+
+### Sign-in settings
+
+Both are optional, so the beta deploys without them. Add them to the Vault secret (**Create Secret Version**, then `deploy.sh --force`) when sign-in opens to readers.
+
+- **`AUTH_JWT_PRIVATE_KEY`** signs the 15-minute access tokens. Without it the API makes a new key on every start, so each deploy makes every browser renew its sign-in once (the refresh token still works, so nobody is signed out). Generate it **on your own computer** and paste the one-line output straight into the secret, never into a chat or a file in the repo:
+  ```bash
+  openssl ecparam -name prime256v1 -genkey -noout | openssl pkcs8 -topk8 -nocrypt -outform DER | base64 | tr -d '\n'
+  ```
+  Replacing it later has the same effect as a restart: browsers renew once. The public half is served at `/.well-known/jwks.json`.
+- **`TURNSTILE_SECRET_KEY`** turns on the bot check for sign-up. Create a widget in Cloudflare → **Turnstile** for your site's hostname; the secret key goes here, and the site key goes to the web app once its sign-up page exists. Without a secret the check is off. With one, a failed or unreachable check refuses the sign-up.
 
 ### Restore a backup
 

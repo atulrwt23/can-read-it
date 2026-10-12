@@ -63,6 +63,9 @@ services:
       # Refreshes the web app's cached pages when content changes (optional; see .env.example).
       WEB_REVALIDATE_URL: http://web:3000/internal/revalidate
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
+      # Sign-in (optional; see .env.example).
+      AUTH_JWT_PRIVATE_KEY: ${AUTH_JWT_PRIVATE_KEY:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
