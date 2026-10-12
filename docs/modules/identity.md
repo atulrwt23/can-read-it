@@ -1,6 +1,6 @@
 # identity
 
-**Purpose.** Accounts, sign-in methods, sessions and roles (CLAUDE.md section 7). Built so far: password sign-up and sign-in, sessions, token refresh and sign-out (2a); sign-in with an emailed code, email confirmation and password reset (2b). Google and Apple (2c), account management (2d) and the web pages (2e) follow.
+**Purpose.** Accounts, sign-in methods, sessions and roles (CLAUDE.md section 7). Built so far: password sign-up and sign-in, sessions, token refresh and sign-out (2a); sign-in with an emailed code, email confirmation and password reset (2b); Google and Apple sign-in and linking (2c). Account management (2d) and the web pages (2e) follow.
 
 ## Endpoints
 | Route | Notes |
@@ -12,6 +12,10 @@
 | `POST /api/v1/auth/password/forgot` | `{ email, botToken? }` → always `202`. Emails a reset code if the email has an active account |
 | `POST /api/v1/auth/password/reset` | `{ email, code, newPassword }` → `200` with the user and cookies. Sets the password (or adds one), ends every session, verifies the email. `400 invalid_code` |
 | `POST /api/v1/me/email/verification` | signed in, CSRF header → `202`. Emails a new confirmation code if the email is not verified yet |
+| `POST /api/v1/auth/oauth/nonce` | → `200 { nonce }`, a one-time nonce (10 minutes) to pass to the Google or Apple SDK |
+| `POST /api/v1/auth/oauth/{provider}` | `google` or `apple`, `{ idToken, nonce }` → `200` with the user and cookies; creates the account on first use. `401 invalid_id_token`, `404 provider_unavailable` (not configured), `503 provider_unreachable` (its keys could not be fetched) |
+| `POST /api/v1/me/identities/{provider}` | signed in, CSRF, `{ idToken, nonce }` → `204`. `409 identity_in_use` (linked to another user), `409 provider_already_linked` (another account from that provider is linked) |
+| `DELETE /api/v1/me/identities/{provider}` | signed in, CSRF → `204`. `409 last_sign_in_method` unless a password, another provider or a verified email (code sign-in) remains |
 | `POST /api/v1/auth/refresh` | the refresh cookie → `204` with new cookies. `401 invalid_refresh` clears the cookies; `409 refresh_superseded` means another tab just refreshed (retry with the new cookie) |
 | `POST /api/v1/auth/logout` | ends the session of the access cookie. Needs the CSRF header; always `204` |
 | `GET /api/v1/me` | the signed-in user (`id`, `handle`, `displayName`, `email`, `emailVerified`, `roles`, `createdAt`). `401` without a valid token |
@@ -25,6 +29,16 @@ Every response here is `Cache-Control: no-store`. Handles are 3–30 letters, di
 - Purposes: `SIGN_IN` from `email/start`, `VERIFY_EMAIL` from registration or the resend, `PASSWORD_RESET` from `forgot`.
 - **Taking back a pre-registered email.** A sign-in code (not a confirmation code) used on an account whose email was never verified removes that account's password and ends its sessions before signing in. Whoever registered it never proved they own the email, and the code's recipient just did: this is section 7's account-linking rule applied to codes. The owner can set a password again with a reset. A confirmation code keeps the password, because it was sent right after that password was set.
 - **Delivery.** After the change commits, identity publishes `AccountEmailRequested` (to, kind, code); `notifications` sends it on another thread ([notifications.md](notifications.md)). It is a plain Spring event, not a persisted module event, so the plain code is never written to `modulith.event_publication`. A lost email is not retried; the reader asks for a new code.
+
+## Google and Apple
+- **Verification** (`IdTokenVerifier`, `OidcIdTokenVerifier`): Nimbus checks the signature against the provider's JWKS (fetched on first use, cached, refetched for an unknown key ID), the audience against our client IDs, expiry with a minute of clock skew, then the issuer and the nonce. Providers are configuration entries under `app.auth.oidc` (issuers, JWKS URL, client IDs); one without client IDs is off.
+- **Nonces** (`OAuthNonces`): issued by us, stored in Redis for 10 minutes and spent on first use, before the token is checked. The token must carry the nonce or its SHA-256 (some SDKs send the hash to the provider). A captured token can't be replayed. Without Redis, social sign-in answers `503` rather than skipping the check.
+- **Matching** (`SocialSignInService`), always on (provider, subject) first:
+  1. A linked identity signs in to its user. The provider email is updated when present (Apple sends it only on the first sign-in).
+  2. Otherwise, if the provider says the email is verified and an account has it: if that account's email is verified, the provider is linked; if not, the provider wins, so the account's password and sessions are removed and its email becomes verified (section 7).
+  3. Otherwise a new account is made with a generated handle. It gets the email only if the provider verified it; an unverified provider email is kept on the identity but never claimed.
+- One identity per provider per user. Unlinking needs another way in: a password, another provider, or a verified email (which can always get a sign-in code).
+- Setup (client IDs, a domain): [deploy.md](../deploy.md#google-and-apple-sign-in).
 
 ## Tokens and cookies
 - **Access token:** an ES256 JWT, 15 minutes (`app.auth.access-token-ttl`). Claims `iss`, `sub` (user), `sid` (session), `roles`, `ev` (email verified), `iat`, `exp`, and `kid` in the header (the key's RFC 7638 thumbprint). The key is `AUTH_JWT_PRIVATE_KEY` (base64 PKCS#8 P-256); without one the API makes a new key at startup and logs a warning ([deploy.md](../deploy.md#sign-in-settings)).
@@ -45,7 +59,7 @@ Every response here is `Cache-Control: no-store`. Handles are 3–30 letters, di
 - **Rate limits** (`shared.RateLimiter`, per IP unless noted): register 10 an hour, and 5 an hour per email; login 30 per 15 minutes, and 10 per 15 minutes per email; `email/start` and `forgot` 20 an hour, and 5 an hour per email (shared); `email/verify` and `reset` 30 per 15 minutes; confirmation resends 5 an hour per user; refresh 120 a minute. Per-email limits also cap how many emails a stranger can trigger to someone's inbox, but they let a stranger use up someone's code requests for an hour (`TODO(product)`: revisit if abused).
 - **Same answer either way:** register, `email/start` and `forgot` answer `202` whatever the email; emails go out on another thread, so timing doesn't tell either. Register hashes the password on both paths.
 - **Bot check:** `BotChallengeVerifier` on register, `email/start` and `forgot`. `TurnstileVerifier` checks the `botToken` with Cloudflare when `TURNSTILE_SECRET_KEY` is set, and refuses the sign-up if Cloudflare can't be reached; without the secret (locally) the check is off.
-- **Audit:** `auth_events` records `REGISTERED`, `SIGNED_IN`, `SIGN_IN_FAILED` and `CODE_FAILED` (with the user when the email exists), `SIGNED_OUT`, `REFRESH_REUSED`, `EMAIL_VERIFIED`, `PASSWORD_RESET`, `PASSWORD_REMOVED` and `SESSIONS_REVOKED`, with IP and user agent. Failures are committed even though the request fails.
+- **Audit:** `auth_events` records `REGISTERED`, `IDENTITY_LINKED`, `IDENTITY_UNLINKED`, `SIGNED_IN`, `SIGN_IN_FAILED` and `CODE_FAILED` (with the user when the email exists), `SIGNED_OUT`, `REFRESH_REUSED`, `EMAIL_VERIFIED`, `PASSWORD_RESET`, `PASSWORD_REMOVED` and `SESSIONS_REVOKED`, with IP and user agent. Failures are committed even though the request fails.
 - **Retention:** `IdentityCleanup` runs daily at 04:23 UTC (`app.auth.cleanup-cron`): it deletes codes a day after they expire, expired refresh tokens, and `auth_events` older than `app.auth.event-retention` (180 days).
 
 ## Events
