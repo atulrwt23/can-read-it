@@ -6,6 +6,8 @@ import com.canreadit.shared.CookieSettings;
 import com.canreadit.shared.Problems;
 import com.canreadit.shared.PublicGetEndpoints;
 import com.canreadit.shared.PublicPostEndpoints;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -25,9 +27,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * Deny by default. Modules open routes by registering {@link PublicGetEndpoints}, {@link PublicPostEndpoints} and
@@ -92,6 +96,8 @@ class SecurityConfig {
                     auth.requestMatchers("/error").permitAll();
                     auth.anyRequest().denyAll();
                 })
+                // Marks requests that passed the CSRF check; only those may use the access cookie.
+                .addFilterAfter(new CsrfCheckedFilter(), CsrfFilter.class)
                 .oauth2ResourceServer(resourceServer -> resourceServer
                         .bearerTokenResolver(new HeaderOrCookieTokenResolver(publicRoute))
                         .authenticationEntryPoint(
@@ -115,7 +121,27 @@ class SecurityConfig {
         return new OrRequestMatcher(matchers);
     }
 
-    /** The bearer header when present; otherwise the access cookie, except on public routes. */
+    /**
+     * Runs right after {@link CsrfFilter}. The resource server tells CSRF to skip any request its token resolver finds
+     * a token in, which is right for the bearer header (no ambient credentials) but wrong for the cookie. So the
+     * resolver reads the cookie only once this marker is set, which is too late for the CSRF filter to see it.
+     */
+    static final class CsrfCheckedFilter extends OncePerRequestFilter {
+
+        static final String ATTRIBUTE = CsrfCheckedFilter.class.getName();
+
+        @Override
+        protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+                throws ServletException, IOException {
+            request.setAttribute(ATTRIBUTE, Boolean.TRUE);
+            chain.doFilter(request, response);
+        }
+    }
+
+    /**
+     * The bearer header when present; otherwise the access cookie, except on public routes and before the CSRF check
+     * (see {@link CsrfCheckedFilter}).
+     */
     static final class HeaderOrCookieTokenResolver implements BearerTokenResolver {
 
         private static final String PREFIX = "Bearer ";
@@ -133,7 +159,9 @@ class SecurityConfig {
                 String token = header.substring(PREFIX.length()).strip();
                 return token.isEmpty() ? null : token;
             }
-            if (publicRoute.matches(request) || request.getCookies() == null) {
+            if (request.getAttribute(CsrfCheckedFilter.ATTRIBUTE) == null
+                    || publicRoute.matches(request)
+                    || request.getCookies() == null) {
                 return null;
             }
             for (Cookie cookie : request.getCookies()) {
