@@ -81,20 +81,17 @@ jobs:
           node-version: "24"
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
-      - name: Start Postgres, Redis and SeaweedFS
+      # bucket-init runs in the foreground, so its exit code fails this step if the bucket can't be made.
+      - name: Start Postgres, Redis and SeaweedFS, and create the bucket
         run: |
           cp infra/local/.env.example infra/local/.env
-          docker compose -f infra/local/docker-compose.yml up -d postgres redis seaweedfs bucket-init
+          docker compose -f infra/local/docker-compose.yml up -d postgres redis seaweedfs
+          docker compose -f infra/local/docker-compose.yml run --rm bucket-init
       - name: Build the API
         working-directory: backend
         run: ./gradlew bootJar
       - name: Start the API (the local profile seeds the placeholder series)
-        run: |
-          if ! docker compose -f infra/local/docker-compose.yml wait bucket-init; then
-            docker compose -f infra/local/docker-compose.yml logs bucket-init seaweedfs | tail -n 80
-            exit 1
-          fi
-          nohup java -jar backend/build/libs/*.jar --spring.profiles.active=local > api.log 2>&1 &
+        run: nohup java -jar backend/build/libs/*.jar --spring.profiles.active=local > api.log 2>&1 &
       - name: Install web dependencies and Chromium
         working-directory: web
         run: |
