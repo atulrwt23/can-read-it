@@ -15,6 +15,7 @@
     "format": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "e2e": "playwright test",
     "gen:api": "openapi-typescript ${API_URL:-http://localhost:8080}/v3/api-docs -o src/lib/api/schema.d.ts && biome format --write src/lib/api/schema.d.ts"
   },
   "dependencies": {
@@ -24,7 +25,9 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@biomejs/biome": "2.5.14",
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "24.19.0",
     "@types/react": "19.3.0",

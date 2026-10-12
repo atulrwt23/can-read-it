@@ -70,44 +70,44 @@ export function PopularPanel({ popular }: { popular: HomeResponse["popular"] }) 
           </button>
         ))}
       </div>
-      <ol
-        id={`${baseId}-panel`}
-        role="tabpanel"
-        aria-labelledby={`${baseId}-tab-${selected}`}
-        className="flex flex-col gap-3"
-      >
-        {popular[selected].length === 0 && <li className="text-sm text-muted">No rankings yet.</li>}
-        {popular[selected].map((entry) => (
-          <li key={entry.series.id} className="flex items-center gap-3">
-            <span
-              className={`w-6 shrink-0 text-center text-lg font-extrabold ${entry.rank <= 3 ? "text-primary-text" : "text-muted"}`}
-            >
-              {entry.rank}
-            </span>
-            {entry.series.cover ? (
-              <img
-                src={entry.series.cover.url}
-                alt=""
-                width={40}
-                height={60}
-                loading="lazy"
-                className="h-15 w-10 shrink-0 rounded object-cover"
-              />
-            ) : (
-              <span className="h-15 w-10 shrink-0 rounded bg-raised" />
-            )}
-            <div className="min-w-0">
-              <Link
-                href={seriesPath(entry.series.slug)}
-                className="line-clamp-2 text-sm font-semibold hover:text-primary-text"
+      {/* The tab panel wraps the list: a role on the <ol> itself would hide its list semantics. */}
+      <div id={`${baseId}-panel`} role="tabpanel" aria-labelledby={`${baseId}-tab-${selected}`}>
+        <ol className="flex flex-col gap-3">
+          {popular[selected].length === 0 && (
+            <li className="text-sm text-muted">No rankings yet.</li>
+          )}
+          {popular[selected].map((entry) => (
+            <li key={entry.series.id} className="flex items-center gap-3">
+              <span
+                className={`w-6 shrink-0 text-center text-lg font-extrabold ${entry.rank <= 3 ? "text-primary-text" : "text-muted"}`}
               >
-                {entry.series.title}
-              </Link>
-              <p className="text-xs text-muted">{compactNumber(entry.views)} views</p>
-            </div>
-          </li>
-        ))}
-      </ol>
+                {entry.rank}
+              </span>
+              {entry.series.cover ? (
+                <img
+                  src={entry.series.cover.url}
+                  alt=""
+                  width={40}
+                  height={60}
+                  loading="lazy"
+                  className="h-15 w-10 shrink-0 rounded object-cover"
+                />
+              ) : (
+                <span className="h-15 w-10 shrink-0 rounded bg-raised" />
+              )}
+              <div className="min-w-0">
+                <Link
+                  href={seriesPath(entry.series.slug)}
+                  className="line-clamp-2 text-sm font-semibold hover:text-primary-text"
+                >
+                  {entry.series.title}
+                </Link>
+                <p className="text-xs text-muted">{compactNumber(entry.views)} views</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
   );
 }
