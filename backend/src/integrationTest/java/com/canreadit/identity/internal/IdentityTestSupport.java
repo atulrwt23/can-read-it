@@ -82,9 +82,9 @@ abstract class IdentityTestSupport {
         return mvc.get().uri("/api/v1/me").cookie(access).exchange();
     }
 
-    /** The XSRF-TOKEN cookie every response hands out. */
+    /** The XSRF-TOKEN cookie, which every response except public reads hands out (here a signed-out /me). */
     Cookie csrfCookie() {
-        return mvc.get().uri("/api/v1/genres").exchange().getResponse().getCookie("XSRF-TOKEN");
+        return mvc.get().uri("/api/v1/me").exchange().getResponse().getCookie("XSRF-TOKEN");
     }
 
     /** A signed-in write: the access cookie plus the CSRF cookie and header. */
