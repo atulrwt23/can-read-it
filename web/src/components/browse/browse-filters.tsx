@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTransition } from "react";
 import type { BrowseParams } from "@/lib/api/server";
 import type { Genre } from "@/lib/api/types";
-import { toSearchParams } from "@/lib/browse-params";
+import { defaultSort, toSearchParams } from "@/lib/browse-params";
 
 const selectClass =
   "h-9 rounded border border-line bg-surface px-2 text-sm focus:border-primary-text focus:outline-none";
@@ -29,7 +29,17 @@ export function BrowseFilters({ params, genres }: { params: BrowseParams; genres
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-surface p-4 shadow-card" aria-busy={pending}>
+    <div
+      className="relative flex flex-col gap-3 overflow-hidden rounded-md bg-surface p-4 shadow-card"
+      aria-busy={pending}
+      data-pending={pending ? "" : undefined}
+    >
+      {pending && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 h-0.5 animate-pulse bg-primary motion-reduce:animate-none"
+        />
+      )}
       <search>
         <form
           onSubmit={(event) => {
@@ -90,9 +100,10 @@ export function BrowseFilters({ params, genres }: { params: BrowseParams; genres
           <span className="text-muted">Sort</span>
           <select
             className={selectClass}
-            value={params.sort ?? "UPDATED"}
+            value={params.sort ?? defaultSort(params)}
             onChange={(e) => update({ sort: e.target.value as BrowseParams["sort"] })}
           >
+            {params.q && <option value="RELEVANCE">Best match</option>}
             <option value="UPDATED">Latest update</option>
             <option value="POPULAR">Popular this week</option>
             <option value="NEWEST">Newest</option>

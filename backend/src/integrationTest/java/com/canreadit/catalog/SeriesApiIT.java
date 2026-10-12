@@ -110,6 +110,75 @@ class SeriesApiIT {
     }
 
     @Test
+    void searchToleratesTyposAndRanksBestMatchFirst() throws Exception {
+        fx.series("climber")
+                .title("The Tower Climber")
+                .lastPublishedAt(NOW.minus(3, ChronoUnit.DAYS))
+                .create();
+        fx.series("hills")
+                .title("Quiet Hills")
+                .synopsis("A shepherd guards an old tower.")
+                .lastPublishedAt(NOW.minus(1, ChronoUnit.HOURS))
+                .create();
+        fx.series("ember").title("Ember Road").create();
+
+        // Best match first by default, even though "hills" was updated more recently.
+        var first = mvc.get().uri("/api/v1/series?q=tower&limit=1").exchange();
+        assertThat(first)
+                .bodyJson()
+                .satisfies(json -> assertThat(json)
+                        .extractingPath("$.items[*].slug")
+                        .asArray()
+                        .containsExactly("climber"))
+                .satisfies(json -> assertThat(json).extractingPath("$.total").isEqualTo(2));
+        String cursor = com.jayway.jsonpath.JsonPath.read(first.getResponse().getContentAsString(), "$.nextCursor");
+        assertThat(mvc.get().uri("/api/v1/series?q=tower&limit=1&cursor=" + cursor))
+                .bodyJson()
+                .satisfies(json -> assertThat(json)
+                        .extractingPath("$.items[*].slug")
+                        .asArray()
+                        .containsExactly("hills"))
+                .satisfies(json -> assertThat(json).extractingPath("$.total").isNull());
+
+        // Another order can still be asked for.
+        assertThat(mvc.get().uri("/api/v1/series?q=tower&sort=UPDATED"))
+                .bodyJson()
+                .extractingPath("$.items[*].slug")
+                .asArray()
+                .containsExactly("hills", "climber");
+
+        // Typos still find the title, but not unrelated series.
+        for (String typo : new String[] {"towr climber", "climbr", "embr road"}) {
+            assertThat(mvc.get().uri("/api/v1/series?q={q}", typo))
+                    .bodyJson()
+                    .extractingPath("$.items[*].slug")
+                    .asArray()
+                    .hasSize(1);
+        }
+        assertThat(mvc.get().uri("/api/v1/series?q=towr climber"))
+                .bodyJson()
+                .extractingPath("$.items[0].slug")
+                .isEqualTo("climber");
+    }
+
+    @Test
+    void countsAllMatchesOnTheFirstPage() {
+        for (String slug : new String[] {"s-a", "s-b", "s-c"}) {
+            fx.series(slug).type("NOVEL").create();
+        }
+        fx.series("s-d").create();
+
+        assertThat(mvc.get().uri("/api/v1/series?type=NOVEL&limit=2"))
+                .bodyJson()
+                .extractingPath("$.total")
+                .isEqualTo(3);
+        assertThat(mvc.get().uri("/api/v1/series?type=MANHWA"))
+                .bodyJson()
+                .extractingPath("$.total")
+                .isEqualTo(1);
+    }
+
+    @Test
     void paginatesWithOpaqueCursors() throws Exception {
         for (String slug : new String[] {"s-e", "s-a", "s-d", "s-b", "s-c"}) {
             fx.series(slug).title(slug.toUpperCase()).create();

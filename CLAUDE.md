@@ -208,7 +208,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 - updates `series.last_published_at`
 - publishes `ChapterPublished`, which drives notifications and cache revalidation
 
-**Search (phase 1):** `pg_trgm` GIN indexes on `title` and `alt_titles` (these work for Korean and other CJK titles), plus Postgres full-text search on `synopsis`. For now `catalog` runs these queries over its own tables (`GET /api/v1/series?q=`). When search moves to a dedicated engine (phase 4), it becomes a `discovery` read model fed by catalog events, behind the same endpoint.
+**Search (phase 1):** `pg_trgm` GIN indexes on `title` and `alt_titles` (these work for Korean and other CJK titles), plus Postgres full-text search on `synopsis`. Titles also match by trigram word similarity, so small typos still find them, and results come best match first unless another sort is chosen (docs/modules/catalog.md). For now `catalog` runs these queries over its own tables (`GET /api/v1/series?q=`). When search moves to a dedicated engine (phase 4), it becomes a `discovery` read model fed by catalog events, behind the same endpoint.
 
 **media**
 - `assets`:
@@ -313,7 +313,9 @@ POST   /me/history/import                                   → merges guest his
 - `next build` runs without a backend (CI, image builds). Pages prerendered at build time must tolerate an unreachable API (`getHome` returns `null` during the build phase and the page shows a placeholder until the first revalidation). Series and chapter pages are generated on first request (`generateStaticParams` returns `[]`).
 - The theme bootstrap script is the first child of `<body>`, never in `<head>`: React hydrates `<head>` as soon as cached app chunks run, which can happen before the parser reaches an inline script there (production-only hydration error #418).
 - Chapter pages render with the explicit `width` and `height` returned by the API, so the layout never shifts. The first two pages load eagerly; the rest are lazy-loaded.
-- Guests keep history and reading progress in localStorage. After sign-in, the app calls `POST /api/v1/me/history/import` once, then clears the local copy.
+- Guests keep history and reading progress in localStorage, with each series' title, type and cover so the home page's "Continue reading" row needs no request. After sign-in, the app calls `POST /api/v1/me/history/import` once, then clears the local copy.
+- Results added with "Load more" come back, at the same scroll position, when the reader returns with the back button (`lib/restore-on-back.ts`, keyed by history entry). A fresh visit starts over.
+- Every route segment has a `loading.tsx` skeleton in flat token colours, shaped like the page.
 - **Page structure (the design spec; there is no prototype file):**
   - **Header:** sticky header with logo, primary nav (Home, Browse, Library), search box with type-ahead suggestions (cover thumbnail, title, type badge), theme toggle, and sign-in / account menu. It collapses to a menu button and a search icon on mobile.
   - **Home:**

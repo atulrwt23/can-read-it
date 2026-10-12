@@ -62,7 +62,7 @@ class ChapterService {
             novel = chapters.novelBody(chapter.id()).orElse(null);
         }
         return new ChapterContent(
-                new ChapterContent.SeriesRef(series.slug(), series.title(), series.type()),
+                new ChapterContent.SeriesRef(series.slug(), series.title(), series.type(), cover(series)),
                 summary.number(),
                 summary.title(),
                 summary.publishedAt(),
@@ -72,6 +72,15 @@ class ChapterService {
                 novel,
                 neighbours.previous(),
                 neighbours.next());
+    }
+
+    private @Nullable ImageRef cover(SeriesRow series) {
+        if (series.coverAssetId() == null) {
+            return null;
+        }
+        return mediaUrls
+                .resolve(List.of(series.coverAssetId()), ImageVariant.ORIGINAL)
+                .get(series.coverAssetId());
     }
 
     /** Page URLs come from media; sizes from the page rows, so they are known before images load. */

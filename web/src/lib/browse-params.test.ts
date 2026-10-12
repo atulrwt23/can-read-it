@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseBrowseParams, toSearchParams } from "./browse-params";
+import { defaultSort, hasFilters, parseBrowseParams, toSearchParams } from "./browse-params";
 
 describe("parseBrowseParams", () => {
   it("keeps valid values", () => {
@@ -50,5 +50,24 @@ describe("parseBrowseParams", () => {
       status: undefined,
     });
     expect(toSearchParams({ sort: "UPDATED" }).toString()).toBe("");
+  });
+
+  it("orders searches by best match unless another order is chosen", () => {
+    expect(defaultSort({ q: "tower" })).toBe("RELEVANCE");
+    expect(defaultSort({})).toBe("UPDATED");
+    expect(toSearchParams({ q: "tower", sort: "RELEVANCE" }).toString()).toBe("q=tower");
+    expect(toSearchParams({ q: "tower", sort: "UPDATED" }).toString()).toBe("q=tower&sort=UPDATED");
+    // Clearing the search drops an order that needs it.
+    expect(toSearchParams({ sort: "RELEVANCE" }).toString()).toBe("");
+    expect(parseBrowseParams({ sort: "RELEVANCE" }).sort).toBeUndefined();
+    expect(parseBrowseParams({ q: "x", sort: "RELEVANCE" }).sort).toBe("RELEVANCE");
+  });
+
+  it("knows when there is something to clear", () => {
+    expect(hasFilters({})).toBe(false);
+    expect(hasFilters({ sort: "UPDATED" })).toBe(false);
+    expect(hasFilters({ sort: "POPULAR" })).toBe(true);
+    expect(hasFilters({ genres: ["action"] })).toBe(true);
+    expect(hasFilters({ q: "x" })).toBe(true);
   });
 });

@@ -114,7 +114,7 @@ export default async function ChapterPage({ params }: Props) {
           </div>
         </nav>
       </main>
-      <ReadingTracker slug={slug} number={chapter.number} />
+      <ReadingTracker slug={slug} number={chapter.number} series={chapter.series} />
       <ViewBeacon slug={slug} />
     </>
   );

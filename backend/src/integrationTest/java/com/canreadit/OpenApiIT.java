@@ -35,7 +35,11 @@ class OpenApiIT {
                         .asArray()
                         .containsExactly("string", "null"))
                 .satisfies(json -> assertThat(json)
-                        .extractingPath("$.components.schemas.CursorPageSeriesCard.required")
+                        .extractingPath("$.components.schemas.CursorPageChapterSummary.required")
+                        .asArray()
+                        .containsExactly("items"))
+                .satisfies(json -> assertThat(json)
+                        .extractingPath("$.components.schemas.SeriesPage.required")
                         .asArray()
                         .containsExactly("items"));
     }

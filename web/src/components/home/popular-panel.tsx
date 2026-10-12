@@ -30,9 +30,17 @@ export function PopularPanel({ popular }: { popular: HomeResponse["popular"] }) 
 
   return (
     <section aria-labelledby={`${baseId}-title`} className="rounded-md bg-surface p-4 shadow-card">
-      <h2 id={`${baseId}-title`} className="mb-3 text-xl">
-        Popular
-      </h2>
+      <div className="mb-3 flex items-baseline justify-between gap-3">
+        <h2 id={`${baseId}-title`} className="text-xl">
+          Popular
+        </h2>
+        <Link
+          href="/browse?sort=POPULAR"
+          className="text-sm font-semibold text-primary-text hover:underline"
+        >
+          View all<span className="sr-only"> popular series</span>
+        </Link>
+      </div>
       <div
         role="tablist"
         aria-label="Ranking period"

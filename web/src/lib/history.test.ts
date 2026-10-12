@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getProgress, saveProgress } from "./history";
+import { getProgress, recentSeries, saveProgress } from "./history";
 
 class MemoryStorage {
   private items = new Map<string, string>();
@@ -24,6 +24,22 @@ describe("guest history", () => {
       updatedAt: "2026-09-26T10:00:00.000Z",
     });
     expect(getProgress("other")).toBeUndefined();
+  });
+
+  it("lists recent series with what Continue reading shows", () => {
+    const tower = { title: "The Tower", type: "MANHWA" as const, cover: null };
+    saveProgress("tower", "3", 0.5, new Date("2026-09-26T10:00:00Z"), tower);
+    saveProgress("tide", "1", 0, new Date("2026-09-27T10:00:00Z"));
+    // A later save without series details keeps the ones already stored.
+    saveProgress("tower", "4", 0, new Date("2026-09-28T10:00:00Z"));
+
+    expect(recentSeries(5).map((entry) => [entry.slug, entry.number, entry.series?.title])).toEqual(
+      [
+        ["tower", "4", "The Tower"],
+        ["tide", "1", undefined],
+      ],
+    );
+    expect(recentSeries(1)).toHaveLength(1);
   });
 
   it("survives corrupt or missing storage", () => {

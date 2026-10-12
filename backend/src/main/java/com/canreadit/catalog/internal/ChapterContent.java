@@ -23,7 +23,12 @@ record ChapterContent(
         @Nullable String previous,
         @Nullable String next) {
 
-    record SeriesRef(String slug, String title, SeriesType type) {}
+    /** @param cover so the reader can remember the series for "Continue reading" without another request */
+    record SeriesRef(
+            String slug,
+            String title,
+            SeriesType type,
+            @Nullable ImageRef cover) {}
 
     record NovelBody(String markdown, int wordCount) {}
 }
