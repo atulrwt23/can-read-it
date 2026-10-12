@@ -308,11 +308,11 @@ POST   /me/history/import                                   → merges guest his
 
 ## 8. Web rules
 
-- Routes: `/`, `/browse`, `/series/[slug]`, `/series/[slug]/chapter/[number]`, `/library`, `/login`, `/signup`, `/account`. Studio and admin come later under `/studio` and `/admin`.
+- Routes: `/`, `/browse`, `/series/[slug]`, `/series/[slug]/chapter/[number]`, `/library`, `/login` (with `/login/reset`), `/signup`, `/account`. Studio and admin come later under `/studio` and `/admin`.
 - Home, browse and series pages are **server-rendered** for SEO. The reader is a server-rendered shell with client components for scrolling, progress tracking and settings.
 - **Public pages are identical for every visitor.** They never read auth cookies during render, so the CDN and Next.js can cache them. Anything personal (library state, "continue reading", the account menu) loads in client components after hydration. Catalog pages use time-based revalidation plus on-demand revalidation triggered by `ChapterPublished`.
 - The browser only calls same-origin `/api/*`. In local development, a Next.js rewrite proxies `/api/*` to `http://localhost:8080`. In production, the edge routes `/api/*` to the backend (section 9). Server components call the backend through an internal base URL (`API_INTERNAL_URL`); only personalised server routes forward cookies.
-- **Token refresh (step 2):** Server Components cannot set cookies. When the access token has expired, `proxy.ts` (Next 16's replacement for middleware) calls `/api/v1/auth/refresh` and sets the new cookies before rendering. Route handlers and server actions may also refresh.
+- **Signed-in state (step 2):** personal data loads in client components through `lib/auth/client.ts`, which sends the `X-XSRF-TOKEN` header on writes and, on a `401`, refreshes the session once (`POST /api/v1/auth/refresh`, shared by concurrent calls) and retries. The refresh cookie is scoped to that path, so `proxy.ts` and Server Components never see it and don't refresh; a personalised server-rendered route would have to redirect through a client refresh first. `SessionProvider` (in the site layout) knows who is signed in after hydration; a localStorage hint (`signed-in`) lets signed-out visitors skip the `/api/v1/me` call. Auth and account pages are `noindex`, and `next` redirects only accept same-site paths (`lib/auth/next-path.ts`).
 - `next build` runs without a backend (CI, image builds). Pages prerendered at build time must tolerate an unreachable API (`getHome` returns `null` during the build phase and the page shows a placeholder until the first revalidation). Series and chapter pages are generated on first request (`generateStaticParams` returns `[]`).
 - The theme bootstrap script is the first child of `<body>`, never in `<head>`: React hydrates `<head>` as soon as cached app chunks run, which can happen before the parser reaches an inline script there (production-only hydration error #418).
 - Chapter pages render with the explicit `width` and `height` returned by the API, so the layout never shifts. The first two pages load eagerly; the rest are lazy-loaded.
@@ -417,8 +417,8 @@ All of it costs $0. Every piece can be swapped by configuration.
 
 **Phase 1 (MVP: a readable product)**
 1. **Skeleton + catalog read slice** (done)
-2. **Identity** (all sign-in methods, tokens, sessions, account page) ← current. 2a sessions and password sign-in, 2b email codes, confirmation and password reset, 2c Google and Apple sign-in (off until client IDs are configured), and 2d account management (profile, password, sessions, 30-day deletion) are done; next is 2e web pages and `proxy.ts` refresh
-3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done)
+2. **Identity** (all sign-in methods, tokens, sessions, account page) (done: 2a sessions and password sign-in, 2b email codes, confirmation and password reset, 2c Google and Apple sign-in, off until client IDs are configured, 2d account management, 2e web sign-in, sign-up, reset and account pages) and `proxy.ts` refresh
+3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done) ← next
 4. Reading: library, follows, progress sync, guest history import
 5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`) (SEO basics and the beta deployment are done; analytics events remain)
 

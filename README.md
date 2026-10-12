@@ -66,5 +66,9 @@ pnpm exec playwright install chromium                        # once
 pnpm e2e                                                     # E2E_BASE_URL=... to test another address
 ```
 
+The sign-in tests read codes from Mailpit (`E2E_MAILPIT_URL`, default http://localhost:8025) and create a few
+accounts per run. Sign-up is rate limited per address (10 an hour), so for many local runs in a row start the API
+with `RATE_LIMITS_ENABLED=false`.
+
 CI runs the same against a fresh stack (the "End-to-end" job). If Chromium is already installed elsewhere,
 point `PLAYWRIGHT_CHROMIUM_PATH` at it instead of installing.

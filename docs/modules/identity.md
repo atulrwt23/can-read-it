@@ -82,9 +82,17 @@ Changing the password and deleting the account need the current password when th
 ## Data (schema `identity`)
 All tables come from the step 1 migration. Written so far: `users`, `credentials`, `user_roles` (every new user is a `READER`), `sessions`, `refresh_tokens`, `verification_codes` and `auth_events`. The `identity` module is the first to write through JPA; its entities implement `Persistable`, so app-generated UUIDv7 IDs insert without a select first.
 
+## Web (step 2e)
+- Pages: `/login` (provider buttons, then an emailed code or a password), `/signup` (same choices; every email path ends with a code), `/login/reset`, and `/account` (profile, email confirmation, password, sign-in methods, devices, deletion). All `noindex`; the account page renders in the browser.
+- `web/src/lib/auth/client.ts` calls the API: CSRF header on writes, one shared refresh and a retry on `401`. `SessionProvider` holds the signed-in user for the header's account menu.
+- Google and Apple buttons appear only when `GOOGLE_CLIENT_IDS` / `APPLE_CLIENT_IDS` are set for the web container (the first ID is the web client). Each attempt gets a fresh nonce.
+- The CSRF cookie is never set on public reads (`SecurityConfig.SpaCsrfHandler`), so cacheable responses carry no `Set-Cookie`; the browser gets it from `/me` or a sign-in response.
+- e2e (`web/e2e/auth.spec.ts`): the pages with axe in both themes; password sign-up with the emailed confirmation, profile change, sign-out and back in; code sign-up and sign-in; the wrong-password message; deletion; renewal of an expired access token.
+
 ## Open questions
 - `TODO(product)`: how long to keep `auth_events` (default 180 days).
 - `TODO(product)`: accounts made with a code or a provider get a random handle unless the sign-up form sends one; readers can rename it (`PATCH /me`). Handle changes are not rate limited beyond 20 profile changes an hour, and old handles are not reserved.
 - `TODO(product)`: unconfirmed password accounts are kept forever, holding their email and handle. A cleanup after some weeks may be wanted.
+- `TODO(product)`: registering answers the same for new and taken emails, but registering and then signing in with the chosen password still tells the two apart (it works only for a new account). Rate limits make this slow; closing it fully would mean new password accounts can't sign in until they confirm their email.
 - Email codes need a domain in production: the email provider only sends from a verified domain ([deploy.md](../deploy.md#email-settings)).
 - Staff roles will need TOTP and recent re-authentication (`Role`, seam only).

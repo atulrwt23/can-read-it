@@ -92,6 +92,9 @@ services:
     environment:
       REVALIDATE_SECRET: ${REVALIDATE_SECRET:-}
       SITE_URL: ${SITE_URL:-}
+      # The sign-in page shows a provider's button with the first (web) client ID.
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-}
     depends_on:
       - api
     cap_drop: [ALL]
