@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
+import { MangaPages, MangaSettingsButton } from "@/components/reader/manga-reader";
+import { NextChapterPreloader } from "@/components/reader/next-chapter-preloader";
 import { NovelBody, NovelSettingsButton } from "@/components/reader/novel-reader";
 import { ReaderBar } from "@/components/reader/reader-bar";
 import { CHAPTER_END_ID, ReadingTracker } from "@/components/reader/reading-tracker";
@@ -46,10 +48,10 @@ export default async function ChapterPage({ params }: Props) {
         slug={slug}
         seriesTitle={chapter.series.title}
         number={chapter.number}
-        chapters={list.items}
+        chapters={list}
         previous={chapter.previous}
         next={chapter.next}
-        actions={isNovel ? <NovelSettingsButton /> : undefined}
+        actions={isNovel ? <NovelSettingsButton /> : <MangaSettingsButton />}
       />
       <main className="pt-14 pb-12 sm:pb-0">
         <h1 className="sr-only">
@@ -79,21 +81,7 @@ export default async function ChapterPage({ params }: Props) {
             )}
           </div>
         ) : (
-          <div className="mx-auto max-w-[800px] bg-surface">
-            {chapter.pages.map((page, index) => (
-              <img
-                key={page.url}
-                src={page.url}
-                width={page.width}
-                height={page.height}
-                alt={`Page ${index + 1}`}
-                loading={index < 2 ? "eager" : "lazy"}
-                fetchPriority={index === 0 ? "high" : undefined}
-                decoding="async"
-                className="block h-auto w-full"
-              />
-            ))}
-          </div>
+          <MangaPages pages={chapter.pages} />
         )}
         <nav
           id={CHAPTER_END_ID}
@@ -130,6 +118,7 @@ export default async function ChapterPage({ params }: Props) {
         canFinish={!chapter.locked}
       />
       <ViewBeacon slug={slug} />
+      <NextChapterPreloader slug={slug} next={chapter.next} manga={!isNovel} />
     </>
   );
 }

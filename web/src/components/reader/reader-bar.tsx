@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { browserApi } from "@/lib/api/browser";
+import type { ChapterPage } from "@/lib/api/types";
 import { chapterPath, seriesPath } from "@/lib/routes";
 
 interface ReaderBarProps {
   slug: string;
   seriesTitle: string;
   number: string;
-  chapters: { number: string; title?: string | null }[];
+  /** The first page of chapters, oldest first; the rest load in the background. */
+  chapters: ChapterPage;
   previous?: string | null;
   next?: string | null;
   actions?: ReactNode;
@@ -33,11 +36,17 @@ export function ReaderBar({
 }: ReaderBarProps) {
   const router = useRouter();
   const [visible, setVisible] = useState(true);
+  const numbers = withChapter(useAllChapterNumbers(slug, chapters), number);
+  const progress = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let lastY = window.scrollY;
     function onScroll() {
       const y = window.scrollY;
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      if (progress.current) {
+        progress.current.style.transform = `scaleX(${scrollable > 0 ? Math.min(1, y / scrollable) : 1})`;
+      }
       const nearEnd = window.innerHeight + y >= document.documentElement.scrollHeight - 200;
       if (nearEnd || y < 80 || y < lastY - 8) setVisible(true);
       else if (y > lastY + 8) setVisible(false);
@@ -60,6 +69,7 @@ export function ReaderBar({
       if (event.key === "ArrowLeft" && previous) router.push(chapterPath(slug, previous));
       if (event.key === "ArrowRight" && next) router.push(chapterPath(slug, next));
     }
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("click", onClick);
     document.addEventListener("keydown", onKey);
@@ -95,6 +105,14 @@ export function ReaderBar({
 
   return (
     <>
+      {/* Reading progress, visible even while the bars are hidden. */}
+      <div aria-hidden="true" className="fixed inset-x-0 top-0 z-30 h-0.5">
+        <div
+          ref={progress}
+          className="h-full origin-left bg-primary"
+          style={{ transform: "scaleX(0)" }}
+        />
+      </div>
       <header
         data-reader-bar
         className={`fixed inset-x-0 top-0 z-20 border-b border-line bg-surface/95 backdrop-blur transition-transform duration-200 ${visible ? "" : "-translate-y-full"} ${hidden}`}
@@ -114,9 +132,9 @@ export function ReaderBar({
               onChange={(event) => router.push(chapterPath(slug, event.target.value))}
               className="h-9 max-w-40 rounded border border-line bg-surface px-2 text-sm"
             >
-              {chapters.map((chapter) => (
-                <option key={chapter.number} value={chapter.number}>
-                  Ch. {chapter.number}
+              {numbers.map((chapter) => (
+                <option key={chapter} value={chapter}>
+                  Ch. {chapter}
                 </option>
               ))}
             </select>
@@ -134,4 +152,51 @@ export function ReaderBar({
       </nav>
     </>
   );
+}
+
+/** Pages of the chapter list fetched in the background, so the picker offers every chapter however long. */
+const PAGE_SIZE = 200;
+
+/**
+ * Every chapter number, oldest first. Starts with the server-rendered first page (plus the open chapter, in case
+ * it is further along), then fetches the remaining pages once the browser is idle.
+ */
+function useAllChapterNumbers(slug: string, first: ChapterPage): string[] {
+  const initial = first.items.map((chapter) => chapter.number);
+  const [loaded, setLoaded] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!first.nextCursor) return;
+    let cancelled = false;
+    const start = async () => {
+      let cursor: string | null | undefined = first.nextCursor;
+      const more: string[] = [];
+      while (cursor && !cancelled) {
+        const { data } = await browserApi
+          .GET("/api/v1/series/{slug}/chapters", {
+            params: { path: { slug }, query: { order: "ASC", limit: PAGE_SIZE, cursor } },
+          })
+          .catch(() => ({ data: undefined }));
+        if (!data) break;
+        more.push(...data.items.map((chapter) => chapter.number));
+        cursor = data.nextCursor;
+      }
+      if (!cancelled) setLoaded(more);
+    };
+    const idle = window.requestIdleCallback ?? ((fn: () => void) => window.setTimeout(fn, 500));
+    const cancelIdle = window.cancelIdleCallback ?? window.clearTimeout;
+    const handle = idle(() => void start());
+    return () => {
+      cancelled = true;
+      cancelIdle(handle);
+    };
+  }, [slug, first.nextCursor]);
+
+  return [...initial, ...loaded];
+}
+
+/** Makes sure the open chapter is in the list (the first page may not reach it yet), in number order. */
+export function withChapter(numbers: string[], current: string): string[] {
+  if (numbers.includes(current)) return numbers;
+  return [...numbers, current].sort((a, b) => Number(a) - Number(b));
 }
