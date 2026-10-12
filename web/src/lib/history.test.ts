@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { getProgress, recentSeries, saveProgress } from "./history";
+import { getProgress, markRead, readChapters, recentSeries, saveProgress } from "./history";
 
 class MemoryStorage {
   private items = new Map<string, string>();
@@ -40,6 +40,20 @@ describe("guest history", () => {
       ],
     );
     expect(recentSeries(1)).toHaveLength(1);
+  });
+
+  it("remembers chapters read to the end across progress saves", () => {
+    markRead("tower", "1");
+    expect(readChapters("tower").size).toBe(0); // no progress yet: nothing to attach marks to
+
+    saveProgress("tower", "1", 0.2, new Date("2026-09-26T10:00:00Z"));
+    markRead("tower", "1");
+    markRead("tower", "2");
+    markRead("tower", "1");
+    saveProgress("tower", "3", 0, new Date("2026-09-26T11:00:00Z"));
+
+    expect([...readChapters("tower")]).toEqual(["2", "1"]);
+    expect(readChapters("other").size).toBe(0);
   });
 
   it("survives corrupt or missing storage", () => {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
 import { NovelBody, NovelSettingsButton } from "@/components/reader/novel-reader";
 import { ReaderBar } from "@/components/reader/reader-bar";
-import { ReadingTracker } from "@/components/reader/reading-tracker";
+import { CHAPTER_END_ID, ReadingTracker } from "@/components/reader/reading-tracker";
 import { ViewBeacon } from "@/components/reader/view-beacon";
 import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
 import { getChapter, getChapters, REMOVED, removedSeries } from "@/lib/api/server";
@@ -95,7 +95,11 @@ export default async function ChapterPage({ params }: Props) {
             ))}
           </div>
         )}
-        <nav aria-label="End of chapter" className="mx-auto my-10 max-w-md px-4 text-center">
+        <nav
+          id={CHAPTER_END_ID}
+          aria-label="End of chapter"
+          className="mx-auto my-10 max-w-md px-4 text-center"
+        >
           <p className="mb-4 text-sm text-muted">End of chapter {chapter.number}</p>
           <div className="flex justify-center gap-3">
             <Link
@@ -119,7 +123,12 @@ export default async function ChapterPage({ params }: Props) {
           </div>
         </nav>
       </main>
-      <ReadingTracker slug={slug} number={chapter.number} series={chapter.series} />
+      <ReadingTracker
+        slug={slug}
+        number={chapter.number}
+        series={chapter.series}
+        canFinish={!chapter.locked}
+      />
       <ViewBeacon slug={slug} />
     </>
   );
