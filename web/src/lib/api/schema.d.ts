@@ -128,10 +128,6 @@ export interface components {
             /** @enum {string} */
             access: "FREE" | "EARLY_ACCESS";
         };
-        CursorPageSeriesCard: {
-            items: components["schemas"]["SeriesCard"][];
-            nextCursor?: string | null;
-        };
         Genre: {
             slug: string;
             name: string;
@@ -160,6 +156,12 @@ export interface components {
             /** Format: date-time */
             lastPublishedAt?: string | null;
             latestChapters: components["schemas"]["ChapterSummary"][];
+        };
+        SeriesPage: {
+            items: components["schemas"]["SeriesCard"][];
+            nextCursor?: string | null;
+            /** Format: int64 */
+            total?: number | null;
         };
         ChapterStats: {
             /** Format: int32 */
@@ -223,6 +225,7 @@ export interface components {
             title: string;
             /** @enum {string} */
             type: "MANHWA" | "NOVEL";
+            cover?: components["schemas"]["ImageRef"] | null;
         };
         HomeResponse: {
             featured: components["schemas"]["SeriesCard"][];
@@ -277,7 +280,7 @@ export interface operations {
                 type?: "MANHWA" | "NOVEL";
                 status?: "ONGOING" | "COMPLETED" | "HIATUS";
                 genres?: string[];
-                sort?: "UPDATED" | "NEWEST" | "TITLE" | "POPULAR";
+                sort?: "UPDATED" | "NEWEST" | "TITLE" | "POPULAR" | "RELEVANCE";
                 cursor?: string;
                 limit?: number;
             };
@@ -293,7 +296,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["CursorPageSeriesCard"];
+                    "*/*": components["schemas"]["SeriesPage"];
                 };
             };
         };

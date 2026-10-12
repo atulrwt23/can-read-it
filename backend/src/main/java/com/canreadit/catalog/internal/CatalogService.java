@@ -6,7 +6,6 @@ import com.canreadit.catalog.SeriesCard;
 import com.canreadit.media.ImageVariant;
 import com.canreadit.media.MediaUrls;
 import com.canreadit.shared.ApiException;
-import com.canreadit.shared.CursorPage;
 import com.canreadit.shared.Cursors;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
@@ -67,20 +66,31 @@ class CatalogService implements CatalogQueries {
         return series.allGenres();
     }
 
-    CursorPage<SeriesCard> browse(BrowseRequest request) {
-        BrowseQuery.After after = request.cursor() == null ? null : decode(request.cursor(), request.sort());
-        List<SeriesRow> rows = series.browse(new BrowseQuery(
-                request.sort(),
-                request.type(),
-                request.status(),
-                request.q(),
-                request.genres(),
-                request.limit() + 1,
-                after));
+    SeriesPage browse(BrowseRequest request) {
+        BrowseSort sort = effectiveSort(request);
+        BrowseQuery.After after = request.cursor() == null ? null : decode(request.cursor(), sort);
+        var query = new BrowseQuery(
+                sort, request.type(), request.status(), request.q(), request.genres(), request.limit() + 1, after);
+        List<SeriesRepository.BrowseRow> rows = series.browse(query);
         boolean hasMore = rows.size() > request.limit();
-        List<SeriesRow> page = hasMore ? rows.subList(0, request.limit()) : rows;
-        String next = hasMore ? encode(page.getLast(), request.sort()) : null;
-        return new CursorPage<>(cards.toCards(page), next);
+        List<SeriesRepository.BrowseRow> page = hasMore ? rows.subList(0, request.limit()) : rows;
+        String next = hasMore ? encode(page.getLast(), sort) : null;
+        Long total = request.cursor() != null
+                ? null
+                : !hasMore ? Long.valueOf(page.size()) : Long.valueOf(series.count(query));
+        return new SeriesPage(
+                cards.toCards(
+                        page.stream().map(SeriesRepository.BrowseRow::series).toList()),
+                next,
+                total);
+    }
+
+    /** Search results come best match first unless another order is asked for; relevance needs search text. */
+    static BrowseSort effectiveSort(BrowseRequest request) {
+        if (request.sort() == null) {
+            return request.q() == null ? BrowseSort.UPDATED : BrowseSort.RELEVANCE;
+        }
+        return request.sort() == BrowseSort.RELEVANCE && request.q() == null ? BrowseSort.UPDATED : request.sort();
     }
 
     SeriesDetail detail(SeriesRow row) {
@@ -107,12 +117,14 @@ class CatalogService implements CatalogQueries {
                 series.chapterStats(row.id()));
     }
 
-    private static String encode(SeriesRow last, BrowseSort sort) {
+    private static String encode(SeriesRepository.BrowseRow lastRow, BrowseSort sort) {
+        SeriesRow last = lastRow.series();
         String key = switch (sort) {
             case UPDATED -> (last.lastPublishedAt() == null ? last.createdAt() : last.lastPublishedAt()).toString();
             case NEWEST -> last.createdAt().toString();
             case TITLE -> last.title();
             case POPULAR -> Long.toString(last.popularity());
+            case RELEVANCE -> Float.toString(lastRow.relevance());
         };
         return Cursors.encode(sort.name(), key, last.id().toString());
     }
@@ -126,6 +138,7 @@ class CatalogService implements CatalogQueries {
             switch (sort) {
                 case UPDATED, NEWEST -> Instant.parse(parts.get(1));
                 case POPULAR -> Long.parseLong(parts.get(1));
+                case RELEVANCE -> Float.parseFloat(parts.get(1));
                 case TITLE -> {}
             }
             return new BrowseQuery.After(parts.get(1), UUID.fromString(parts.get(2)));
@@ -138,8 +151,9 @@ class CatalogService implements CatalogQueries {
         return ApiException.badRequest("invalid_cursor", "The cursor does not match this query.");
     }
 
+    /** @param sort null for the default order (see {@link #effectiveSort}) */
     record BrowseRequest(
-            BrowseSort sort,
+            @Nullable BrowseSort sort,
             com.canreadit.catalog.@Nullable SeriesType type,
             com.canreadit.catalog.@Nullable SeriesStatus status,
             @Nullable String q,

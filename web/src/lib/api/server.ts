@@ -87,7 +87,7 @@ export interface BrowseParams {
   type?: SeriesType;
   status?: SeriesStatus;
   genres?: string[];
-  sort?: "UPDATED" | "POPULAR" | "NEWEST" | "TITLE";
+  sort?: "RELEVANCE" | "UPDATED" | "POPULAR" | "NEWEST" | "TITLE";
   cursor?: string;
   limit?: number;
 }

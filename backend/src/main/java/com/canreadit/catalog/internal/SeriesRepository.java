@@ -46,35 +46,25 @@ class SeriesRepository {
                         """).param("slug", oldSlug).query(String.class).optional();
     }
 
-    List<SeriesRow> browse(BrowseQuery query) {
-        var sql = new StringBuilder(
-                "select " + SeriesRow.COLUMNS + " from catalog.series s where s.visibility = 'PUBLISHED'");
+    /**
+     * How well a series matches the search text: 1 when a title or alt title contains it, the trigram word
+     * similarity for near misses (typos), and 0.5 when only the synopsis has its words.
+     */
+    private static final String RELEVANCE = """
+            greatest(
+                case when catalog.search_text(s.title, s.alt_titles) ilike :pattern escape '\\' then 1 else 0 end,
+                word_similarity(:q, catalog.search_text(s.title, s.alt_titles)),
+                case when to_tsvector('simple', s.synopsis) @@ plainto_tsquery('simple', :q) then 0.5 else 0 end
+            )::real""";
+
+    /** A browse result with its search relevance (0 without search text). */
+    record BrowseRow(SeriesRow series, float relevance) {}
+
+    List<BrowseRow> browse(BrowseQuery query) {
         var params = new HashMap<String, Object>();
-        if (query.type() != null) {
-            sql.append(" and s.type = :type");
-            params.put("type", query.type().name());
-        }
-        if (query.status() != null) {
-            sql.append(" and s.status = :status");
-            params.put("status", query.status().name());
-        }
-        if (query.q() != null) {
-            sql.append("""
-                     and (catalog.search_text(s.title, s.alt_titles) ilike :pattern escape '\\'
-                          or to_tsvector('simple', s.synopsis) @@ plainto_tsquery('simple', :q))
-                    """);
-            params.put("pattern", "%" + escapeLike(query.q()) + "%");
-            params.put("q", query.q());
-        }
-        if (!query.genres().isEmpty()) {
-            sql.append("""
-                     and (select count(distinct g.slug) from catalog.series_genres sg
-                          join catalog.genres g on g.id = sg.genre_id
-                          where sg.series_id = s.id and g.slug in (:genres)) = :genreCount
-                    """);
-            params.put("genres", query.genres());
-            params.put("genreCount", query.genres().size());
-        }
+        String relevance = query.q() == null ? "0::real" : RELEVANCE;
+        var sql = new StringBuilder("select " + SeriesRow.COLUMNS + ", " + relevance + " as relevance");
+        sql.append(" from catalog.series s where ").append(filters(query, params));
         BrowseQuery.After after = query.after();
         switch (query.sort()) {
             case UPDATED -> {
@@ -106,13 +96,67 @@ class SeriesRepository {
                 }
                 sql.append(" order by s.popularity desc, s.id desc");
             }
+            case RELEVANCE -> {
+                // The service only asks for this sort with search text.
+                if (after != null) {
+                    sql.append(" and (" + RELEVANCE + ", s.id) < (:afterKey, :afterId)");
+                    params.put("afterKey", Float.parseFloat(after.key()));
+                }
+                sql.append(" order by relevance desc, s.id desc");
+            }
         }
         if (after != null) {
             params.put("afterId", after.id());
         }
         sql.append(" limit :limit");
         params.put("limit", query.limit());
-        return jdbc.sql(sql.toString()).params(params).query(SeriesRow::map).list();
+        return jdbc.sql(sql.toString())
+                .params(params)
+                .query((rs, rowNum) -> new BrowseRow(SeriesRow.map(rs, rowNum), rs.getFloat("relevance")))
+                .list();
+    }
+
+    /** How many published series match the query's filters and search text (the cursor and sort are ignored). */
+    long count(BrowseQuery query) {
+        var params = new HashMap<String, Object>();
+        String sql = "select count(*) from catalog.series s where " + filters(query, params);
+        return jdbc.sql(sql).params(params).query(Long.class).single();
+    }
+
+    /**
+     * The where clause shared by browse and count. Search matches a title or alt title containing the text, one
+     * close to it word by word ({@code <%}, pg_trgm's word similarity, so typos still match), or a synopsis with
+     * all its words. All three use indexes.
+     */
+    private static String filters(BrowseQuery query, Map<String, Object> params) {
+        var sql = new StringBuilder("s.visibility = 'PUBLISHED'");
+        if (query.type() != null) {
+            sql.append(" and s.type = :type");
+            params.put("type", query.type().name());
+        }
+        if (query.status() != null) {
+            sql.append(" and s.status = :status");
+            params.put("status", query.status().name());
+        }
+        if (query.q() != null) {
+            sql.append("""
+                     and (catalog.search_text(s.title, s.alt_titles) ilike :pattern escape '\\'
+                          or :q <% catalog.search_text(s.title, s.alt_titles)
+                          or to_tsvector('simple', s.synopsis) @@ plainto_tsquery('simple', :q))
+                    """);
+            params.put("pattern", "%" + escapeLike(query.q()) + "%");
+            params.put("q", query.q());
+        }
+        if (!query.genres().isEmpty()) {
+            sql.append("""
+                     and (select count(distinct g.slug) from catalog.series_genres sg
+                          join catalog.genres g on g.id = sg.genre_id
+                          where sg.series_id = s.id and g.slug in (:genres)) = :genreCount
+                    """);
+            params.put("genres", query.genres());
+            params.put("genreCount", query.genres().size());
+        }
+        return sql.toString();
     }
 
     List<SeriesRow> latestUpdates(int limit) {

@@ -1,10 +1,8 @@
 package com.canreadit.catalog.internal;
 
 import com.canreadit.catalog.Genre;
-import com.canreadit.catalog.SeriesCard;
 import com.canreadit.catalog.SeriesStatus;
 import com.canreadit.catalog.SeriesType;
-import com.canreadit.shared.CursorPage;
 import com.canreadit.shared.PublicCache;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.constraints.Max;
@@ -43,15 +41,16 @@ class CatalogController {
     }
 
     /**
-     * Browse and search published series. {@code genres} narrows to series having all of them.
+     * Browse and search published series. {@code genres} narrows to series having all of them. Without {@code sort},
+     * search results come best match first ({@code RELEVANCE}) and everything else by latest update.
      */
     @GetMapping("/series")
-    ResponseEntity<CursorPage<SeriesCard>> browse(
+    ResponseEntity<SeriesPage> browse(
             @RequestParam(required = false) @Size(max = 100) @Nullable String q,
             @RequestParam(required = false) @Nullable SeriesType type,
             @RequestParam(required = false) @Nullable SeriesStatus status,
             @RequestParam(required = false) @Size(max = 10) @Nullable List<@Pattern(regexp = SLUG) String> genres,
-            @RequestParam(defaultValue = "UPDATED") BrowseSort sort,
+            @RequestParam(required = false) @Nullable BrowseSort sort,
             @RequestParam(required = false) @Size(max = 1024) @Nullable String cursor,
             @RequestParam(defaultValue = "24") @Min(1) @Max(50) int limit) {
         String query = q == null || q.isBlank() ? null : q.strip();

@@ -104,6 +104,26 @@ class ChapterApiIT {
     }
 
     @Test
+    void carriesTheSeriesCoverForContinueReading() {
+        var cover = fx.asset("COVER", 600, 900);
+        var withCover = fx.series("lantern").cover(cover).create();
+        fx.published(withCover.editionId(), "1", NOW.minus(1, ChronoUnit.DAYS));
+
+        assertThat(mvc.get().uri("/api/v1/series/lantern/chapters/1"))
+                .bodyJson()
+                .satisfies(json -> assertThat(json)
+                        .extractingPath("$.series.cover.url")
+                        .asString()
+                        .endsWith(".png"))
+                .satisfies(json ->
+                        assertThat(json).extractingPath("$.series.cover.height").isEqualTo(900));
+        assertThat(mvc.get().uri("/api/v1/series/tower/chapters/1"))
+                .bodyJson()
+                .extractingPath("$.series.cover")
+                .isNull();
+    }
+
+    @Test
     void readsNovelBodies() {
         var novel = fx.series("story").type("NOVEL").create();
         var chapter = fx.published(novel.editionId(), "1", NOW.minus(1, ChronoUnit.DAYS));
