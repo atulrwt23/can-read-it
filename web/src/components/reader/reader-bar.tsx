@@ -128,6 +128,7 @@ export function ReaderBar({
           <label className="ml-auto shrink-0">
             <span className="sr-only">Chapter</span>
             <select
+              aria-label="Chapter"
               value={number}
               onChange={(event) => router.push(chapterPath(slug, event.target.value))}
               className="h-9 max-w-40 rounded border border-line bg-surface px-2 text-sm"

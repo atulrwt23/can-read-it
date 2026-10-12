@@ -61,13 +61,82 @@ jobs:
       # No backend in CI: pages that fetch at build time render a placeholder instead.
       - run: pnpm build
 
-  # --- Release images (pushes to main only, after both test jobs pass) ---
+  # --- End-to-end smoke tests: the whole stack, as in local development ---
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      # bucket-init runs in the foreground, so its exit code fails this step if the bucket can't be made.
+      - name: Start Postgres, Redis and SeaweedFS, and create the bucket
+        run: |
+          cp infra/local/.env.example infra/local/.env
+          docker compose -f infra/local/docker-compose.yml up -d postgres redis seaweedfs
+          docker compose -f infra/local/docker-compose.yml run --rm bucket-init
+      - name: Build the API
+        working-directory: backend
+        run: ./gradlew bootJar
+      - name: Start the API (the local profile seeds the placeholder series)
+        run: nohup java -jar backend/build/libs/*.jar --spring.profiles.active=local > api.log 2>&1 &
+      - name: Install web dependencies and Chromium
+        working-directory: web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+      # Readiness turns UP only after the seeders ran, so the home page is built with real data.
+      - name: Wait for the API to finish seeding
+        run: |
+          for i in $(seq 1 180); do
+            curl -sf http://localhost:8080/actuator/health/readiness > /dev/null && exit 0
+            sleep 2
+          done
+          tail -n 80 api.log
+          exit 1
+      - name: Build and start the web app
+        working-directory: web
+        env:
+          API_INTERNAL_URL: http://localhost:8080
+        run: |
+          pnpm build
+          nohup pnpm start > ../web.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/healthz > /dev/null && exit 0; sleep 1; done
+          cat ../web.log
+          exit 1
+      - name: Run the smoke tests
+        working-directory: web
+        run: pnpm e2e
+      - name: Upload the report and logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            web/playwright-report
+            web/test-results
+            api.log
+            web.log
+
+  # --- Release images (pushes to main only, after every test job passes) ---
   # Each architecture builds natively on its own runner (free for public repositories). The
   # per-commit tag (<sha>) appears only after both are pushed and merged, and it is what
   # infra/prod/deploy.sh waits for, so a commit that fails its tests is never deployed.
   images:
     name: Image ${{ matrix.app }} (${{ matrix.arch }})
-    needs: [backend, web]
+    needs: [backend, web, e2e]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read

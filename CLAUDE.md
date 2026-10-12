@@ -79,7 +79,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 - Tailwind CSS v4 with design tokens as CSS variables (section 8). UI primitives follow shadcn/ui conventions (copied-in, token-styled components in `web/src/components`); step 1 needed only a few, written by hand. Add shadcn components through its CLI when a richer primitive (dialog, dropdown) is needed
 - No web fonts: system sans stack for UI and titles, system serif stack for novel reading (fast first paint, nothing to download)
 - API types generated from the backend OpenAPI spec (`openapi-typescript` + `openapi-fetch`)
-- Biome for lint and format, Vitest for unit tests (Playwright later)
+- Biome for lint and format, Vitest for unit tests, Playwright with axe for end-to-end smoke and accessibility tests (`web/e2e`)
 - Next.js 16 changed several APIs (for example `proxy.ts` replaced middleware, and `params`/`searchParams` are promises). Its version-matched docs ship in `web/node_modules/next/dist/docs/`; check them before relying on memory.
 - Images come from our CDN with known dimensions, so `next/image` optimization is off (`unoptimized` or a pass-through loader). The web container needs no image-processing native dependencies.
 
@@ -315,7 +315,8 @@ POST   /me/history/import                                   → merges guest his
 - Chapter pages render with the explicit `width` and `height` returned by the API, so the layout never shifts. The first two pages load eagerly; the rest are lazy-loaded.
 - Guests keep history and reading progress in localStorage, with each series' title, type and cover so the home page's "Continue reading" row needs no request. After sign-in, the app calls `POST /api/v1/me/history/import` once, then clears the local copy.
 - Results added with "Load more" come back, at the same scroll position, when the reader returns with the back button (`lib/restore-on-back.ts`, keyed by history entry). A fresh visit starts over.
-- Every route segment has a `loading.tsx` skeleton in flat token colours, shaped like the page.
+- Every route segment has a `loading.tsx` skeleton in flat token colours, shaped like the page. Because the skeleton starts the stream, a missing series or chapter answers 200 with `noindex` (Next.js's streamed not-found) rather than 404. `TODO(product):` if real 404s are needed (analytics, compliance), check slugs in `proxy.ts`.
+- **SEO:** canonical URLs and `og:url` need the public origin, so they are only emitted when `SITE_URL` is set (the quick tunnel's address changes). Series pages carry Open Graph and Twitter cards and `ComicSeries`/`BookSeries` JSON-LD; `/sitemap.xml` lists home, browse and every published series from the API; search results and locked chapters are `noindex`. Icons live in `app/` (`favicon.ico`, `icon.png`, `apple-icon.png`).
 - A removed series (the API answers 410) shows "This series was removed" with `noindex` on its series and chapter pages. Next.js can only send 404 for a missing page, so the status stays 200.
 - Reaching a chapter's end panel marks it read in the guest history; the series page ticks read chapters, highlights the last one opened, and offers "Go to chapter".
 - Reader robustness: the chapter picker fetches every chapter in the background (pages of 200), a progress line shows how far through the chapter the reader is, failed page images retry once and then offer "Try again", the next chapter (and its first three manhwa pages) is prefetched past 60% of the current one, and manhwa has a page-width setting saved in localStorage.
@@ -395,10 +396,11 @@ All of it costs $0. Every piece can be swapped by configuration.
 ## 10. Quality bar
 
 - **Backend:** unit tests for domain logic. Integration tests use `@SpringBootTest` with Testcontainers in a separate `integrationTest` source set or task. `ModularityTests` always runs.
-- **Web:** `pnpm lint`, `pnpm typecheck`, `pnpm build` and `pnpm test` must pass.
+- **Web:** `pnpm lint`, `pnpm typecheck`, `pnpm build` and `pnpm test` must pass. `pnpm e2e` (Playwright and axe, against the running local stack) must pass too; a new screen gets a smoke test with an accessibility check in both themes.
 - **CI** (GitHub Actions, on every PR):
   - backend: `./gradlew spotlessCheck build`
   - web: `pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test && pnpm build`
+  - end-to-end: the local compose services, the API with the `local` profile, a production web build, then `pnpm e2e`
 - Conventional Commits (`feat(catalog): ...`, `fix(identity): ...`). Keep PRs small and focused on one module where possible.
 - **Security baseline:**
   - no secrets in code
@@ -415,7 +417,7 @@ All of it costs $0. Every piece can be swapped by configuration.
 2. Identity (all sign-in methods, tokens, sessions, account page)
 3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done)
 4. Reading: library, follows, progress sync, guest history import
-5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`)
+5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`) (SEO basics and the beta deployment are done; analytics events remain)
 
 Phase 2: notifications, ratings, comments, reports and moderation queue.
 Phase 3: Creator Studio, coins and early access, subscriptions, ads.

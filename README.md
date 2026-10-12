@@ -53,3 +53,18 @@ cd web && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 ```
 
 After changing an API, regenerate the web client types with the API running: `cd web && pnpm gen:api`.
+
+### End-to-end tests
+
+Playwright smoke tests (`web/e2e`) open every screen in Chromium and run axe accessibility checks in both
+themes. They need the local stack running with its seeded placeholder series, ideally on a production build:
+
+```bash
+cd web
+pnpm build && pnpm start &                                   # with the API running
+pnpm exec playwright install chromium                        # once
+pnpm e2e                                                     # E2E_BASE_URL=... to test another address
+```
+
+CI runs the same against a fresh stack (the "End-to-end" job). If Chromium is already installed elsewhere,
+point `PLAYWRIGHT_CHROMIUM_PATH` at it instead of installing.

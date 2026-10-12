@@ -8,6 +8,8 @@ import { ExpandableText } from "@/components/series/expandable-text";
 import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
 import { getChapters, getSeries, REMOVED, removedSeries } from "@/lib/api/server";
 import { label } from "@/lib/format";
+import { seriesPath } from "@/lib/routes";
+import { canonical, jsonLd, siteUrl } from "@/lib/site";
 
 export const revalidate = 60;
 
@@ -21,10 +23,22 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const series = await getSeries((await params).slug).catch(removedSeries);
   if (series === REMOVED) return removedMetadata;
+  const description = summary(series.synopsis);
+  const page = canonical(seriesPath(series.slug));
   return {
     title: series.title,
-    description: series.synopsis.slice(0, 160),
-    openGraph: { title: series.title, images: series.cover ? [series.cover.url] : [] },
+    description,
+    ...page,
+    openGraph: {
+      ...page.openGraph,
+      type: "book",
+      title: series.title,
+      description,
+      images: series.cover
+        ? [{ url: series.cover.url, width: series.cover.width, height: series.cover.height }]
+        : [],
+    },
+    twitter: { card: "summary_large_image", title: series.title, description },
   };
 }
 
@@ -40,8 +54,27 @@ export default async function SeriesPage({ params }: Props) {
   const statusTone =
     series.status === "COMPLETED" ? "success" : series.status === "HIATUS" ? "warning" : "neutral";
 
+  const origin = siteUrl();
+  // schema.org description of the series, for search engines' rich results.
+  const structured = {
+    "@context": "https://schema.org",
+    "@type": series.type === "MANHWA" ? "ComicSeries" : "BookSeries",
+    name: series.title,
+    alternateName: series.altTitles.length > 0 ? series.altTitles : undefined,
+    description: series.synopsis,
+    genre: series.genres.map((genre) => genre.name),
+    image: series.cover?.url,
+    url: origin ? new URL(seriesPath(series.slug), origin).href : undefined,
+    startDate: series.firstReleasedYear ? String(series.firstReleasedYear) : undefined,
+  };
+
   return (
     <main>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD built from API data, "<" escaped by jsonLd
+        dangerouslySetInnerHTML={{ __html: jsonLd(structured) }}
+      />
       <div className="relative overflow-hidden border-b border-line bg-raised">
         {series.cover && (
           <img
@@ -117,4 +150,11 @@ export default async function SeriesPage({ params }: Props) {
       </div>
     </main>
   );
+}
+
+/** A search-result length description: whole words, at most about 160 characters. */
+function summary(text: string): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= 160) return clean;
+  return `${clean.slice(0, 157).replace(/\s+\S*$/, "")}…`;
 }

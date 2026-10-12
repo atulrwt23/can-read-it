@@ -144,3 +144,20 @@ export async function getChapter(slug: string, number: string): Promise<ChapterC
     followSeriesMove(slug, `/series/${slug}/chapter/${number}`),
   );
 }
+
+/** Every published series, newest update first, for the sitemap. Capped so a huge catalog can't stall it. */
+export async function allPublishedSeries(maxPages = 400): Promise<SeriesPage["items"]> {
+  const all: SeriesPage["items"] = [];
+  let cursor: string | undefined;
+  for (let page = 0; page < maxPages; page++) {
+    const result = await call(() =>
+      api(3600, [cacheTags.seriesLists]).GET("/api/v1/series", {
+        params: { query: { sort: "UPDATED", limit: 50, cursor } },
+      }),
+    );
+    all.push(...result.items);
+    if (!result.nextCursor) break;
+    cursor = result.nextCursor;
+  }
+  return all;
+}

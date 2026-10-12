@@ -1,11 +1,17 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { PopularPanel } from "@/components/home/popular-panel";
 import { SeriesGridCard } from "@/components/series-grid-card";
 import { getHome } from "@/lib/api/server";
+import { canonical } from "@/lib/site";
 
 export const revalidate = 60;
+
+export function generateMetadata(): Metadata {
+  return canonical("/");
+}
 
 export default async function HomePage() {
   const home = await getHome();

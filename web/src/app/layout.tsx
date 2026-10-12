@@ -2,12 +2,21 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { THEME_SCRIPT } from "@/components/theme-toggle";
 import { BRAND_NAME } from "@/lib/brand";
+import { siteUrl } from "@/lib/site";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: { default: `${BRAND_NAME}: manhwa and web novels`, template: `%s · ${BRAND_NAME}` },
-  description: "Read manhwa and web novels, follow series and catch every new chapter.",
-};
+const DESCRIPTION = "Read manhwa and web novels, follow series and catch every new chapter.";
+
+export function generateMetadata(): Metadata {
+  return {
+    metadataBase: siteUrl(),
+    title: { default: `${BRAND_NAME}: manhwa and web novels`, template: `%s · ${BRAND_NAME}` },
+    description: DESCRIPTION,
+    applicationName: BRAND_NAME,
+    openGraph: { siteName: BRAND_NAME, type: "website", locale: "en" },
+    twitter: { card: "summary_large_image" },
+  };
+}
 
 export const viewport: Viewport = {
   themeColor: [

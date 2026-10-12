@@ -30,6 +30,7 @@
     "src/**/*.tsx",
     ".next/types/**/*.ts",
     "*.ts",
+    "e2e/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
