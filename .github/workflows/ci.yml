@@ -90,7 +90,10 @@ jobs:
         run: ./gradlew bootJar
       - name: Start the API (the local profile seeds the placeholder series)
         run: |
-          docker compose -f infra/local/docker-compose.yml wait bucket-init
+          if ! docker compose -f infra/local/docker-compose.yml wait bucket-init; then
+            docker compose -f infra/local/docker-compose.yml logs bucket-init seaweedfs | tail -n 80
+            exit 1
+          fi
           nohup java -jar backend/build/libs/*.jar --spring.profiles.active=local > api.log 2>&1 &
       - name: Install web dependencies and Chromium
         working-directory: web
