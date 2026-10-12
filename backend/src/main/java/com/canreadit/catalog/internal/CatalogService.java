@@ -12,6 +12,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -52,6 +53,14 @@ class CatalogService implements CatalogQueries {
     @Override
     public List<UUID> publishedSeriesIds() {
         return series.publishedIds();
+    }
+
+    @Override
+    public Optional<UUID> readableSeriesId(String slug) {
+        return series.findBySlug(slug)
+                .filter(row -> row.visibility() == SeriesRow.Visibility.PUBLISHED
+                        || row.visibility() == SeriesRow.Visibility.UNLISTED)
+                .map(SeriesRow::id);
     }
 
     List<Genre> genres() {
@@ -103,6 +112,7 @@ class CatalogService implements CatalogQueries {
             case UPDATED -> (last.lastPublishedAt() == null ? last.createdAt() : last.lastPublishedAt()).toString();
             case NEWEST -> last.createdAt().toString();
             case TITLE -> last.title();
+            case POPULAR -> Long.toString(last.popularity());
         };
         return Cursors.encode(sort.name(), key, last.id().toString());
     }
@@ -113,8 +123,10 @@ class CatalogService implements CatalogQueries {
             if (!parts.get(0).equals(sort.name())) {
                 throw invalidCursor();
             }
-            if (sort != BrowseSort.TITLE) {
-                Instant.parse(parts.get(1));
+            switch (sort) {
+                case UPDATED, NEWEST -> Instant.parse(parts.get(1));
+                case POPULAR -> Long.parseLong(parts.get(1));
+                case TITLE -> {}
             }
             return new BrowseQuery.After(parts.get(1), UUID.fromString(parts.get(2)));
         } catch (DateTimeParseException | IllegalArgumentException e) {

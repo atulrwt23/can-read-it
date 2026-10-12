@@ -2,7 +2,7 @@ import type { BrowseParams } from "@/lib/api/server";
 
 const TYPES = ["MANHWA", "NOVEL"] as const;
 const STATUSES = ["ONGOING", "COMPLETED", "HIATUS"] as const;
-const SORTS = ["UPDATED", "NEWEST", "TITLE"] as const;
+const SORTS = ["UPDATED", "POPULAR", "NEWEST", "TITLE"] as const;
 
 type Raw = Record<string, string | string[] | undefined>;
 

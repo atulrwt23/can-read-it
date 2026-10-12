@@ -9,6 +9,14 @@ spring:
   threads:
     virtual:
       enabled: true
+  data:
+    redis:
+      # Cache, view counters and rate-limit buckets: data that may be lost (docs/architecture.md).
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Redis is never worth waiting for: counters and rate limits skip it when it is slow or down.
+      connect-timeout: 2s
+      timeout: 1s
   datasource:
     url: ${DB_URL}
     username: ${POSTGRES_USER}
@@ -44,6 +52,13 @@ logging:
 app:
   brand:
     name: CanReadIt
+  rate-limits:
+    # Per-client limits on public endpoints, kept in Redis (shared.RateLimiter).
+    enabled: ${RATE_LIMITS_ENABLED:true}
+  web:
+    # Where the API asks the web app to refresh cached pages (empty: pages refresh on their timers).
+    revalidate-url: ${WEB_REVALIDATE_URL:}
+    revalidate-secret: ${REVALIDATE_SECRET:}
   media:
     public-base-url: ${MEDIA_PUBLIC_BASE_URL}
     s3:

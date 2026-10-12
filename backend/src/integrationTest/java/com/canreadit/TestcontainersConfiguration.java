@@ -22,6 +22,12 @@ public class TestcontainersConfiguration {
     }
 
     @Bean
+    @ServiceConnection(name = "redis")
+    GenericContainer<?> redis() {
+        return new GenericContainer<>("redis:8.10.2-alpine").withExposedPorts(6379);
+    }
+
+    @Bean
     GenericContainer<?> seaweedfs() {
         return new GenericContainer<>("chrislusf/seaweedfs:4.47")
                 .withCommand("server", "-dir=/data", "-s3", "-s3.config=/etc/seaweedfs/s3.json")

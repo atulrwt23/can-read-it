@@ -2,6 +2,7 @@ package com.canreadit.shared.internal;
 
 import com.canreadit.shared.Problems;
 import com.canreadit.shared.PublicGetEndpoints;
+import com.canreadit.shared.PublicPostEndpoints;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
@@ -15,7 +16,7 @@ import org.springframework.security.web.SecurityFilterChain;
 
 /**
  * Deny by default. Modules open anonymous {@code GET} routes by registering {@link
- * PublicGetEndpoints} beans. Sign-in, JWT validation and CSRF double-submit cookies arrive with
+ * PublicGetEndpoints} beans, and anonymous beacons with {@link PublicPostEndpoints}. Sign-in, JWT validation and CSRF double-submit cookies arrive with
  * the identity module (roadmap step 2).
  */
 @Configuration(proxyBeanMethods = false)
@@ -27,15 +28,28 @@ class SecurityConfig {
     };
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, List<PublicGetEndpoints> publicEndpoints)
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http, List<PublicGetEndpoints> publicEndpoints, List<PublicPostEndpoints> publicBeacons)
             throws Exception {
         String[] publicGets = publicEndpoints.stream()
                 .flatMap(endpoints -> endpoints.patterns().stream())
                 .toArray(String[]::new);
+        String[] publicPosts = publicBeacons.stream()
+                .flatMap(endpoints -> endpoints.patterns().stream())
+                .toArray(String[]::new);
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Anonymous beacons carry no credentials, so there is nothing for CSRF to protect.
+                .csrf(csrf -> {
+                    if (publicPosts.length > 0) {
+                        csrf.ignoringRequestMatchers(publicPosts);
+                    }
+                })
                 .authorizeHttpRequests(auth -> {
                     if (publicGets.length > 0) {
                         auth.requestMatchers(HttpMethod.GET, publicGets).permitAll();
+                    }
+                    if (publicPosts.length > 0) {
+                        auth.requestMatchers(HttpMethod.POST, publicPosts).permitAll();
                     }
                     auth.requestMatchers(HttpMethod.GET, OPERATIONAL_GETS).permitAll();
                     auth.requestMatchers("/error").permitAll();

@@ -1,6 +1,7 @@
 package com.canreadit.catalog;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /** Read access to published catalog content for other modules. */
@@ -14,4 +15,7 @@ public interface CatalogQueries {
 
     /** IDs of every published series. */
     List<UUID> publishedSeriesIds();
+
+    /** The ID of the series readers can open at this slug (published or unlisted), if any. */
+    Optional<UUID> readableSeriesId(String slug);
 }

@@ -36,7 +36,9 @@ The platform only hosts content we have the rights to publish: original work, li
 | Chapter numbers | Decimal (`12.5` for extras), stored as `numeric(8,2)`, shown without trailing zeros |
 | Chapter visibility | A chapter is public once its `publish_at` has passed. The scheduler only emits events and never gates visibility ([ADR 0006](docs/decisions/0006-scheduled-publishing-visibility.md)) |
 | Media URLs | Only the `media` module builds image URLs (`MediaUrls`). Assets are `PUBLIC` (CDN, cached forever) or `PROTECTED` (signed, short-lived) ([ADR 0004](docs/decisions/0004-media-url-resolver-and-asset-visibility.md)) |
-| Home and rankings | Owned by `discovery`: daily view counters in Redis, rolled up into Postgres ([ADR 0005](docs/decisions/0005-discovery-owns-home-and-rankings.md)) |
+| Home and rankings | Owned by `discovery`: daily view counters in Redis, rolled up into Postgres ([ADR 0005](docs/decisions/0005-discovery-owns-home-and-rankings.md)). Featured is automatic for now (the week's most viewed) |
+| View counting | A view counts once per visitor, series and UTC day. The visitor is a daily-salted HMAC of IP and user agent (nothing personal stored), crawlers are ignored, and one IP counts at most 30 visitors per series and day ([docs/modules/discovery.md](docs/modules/discovery.md)) |
+| Rate limits | `shared.RateLimiter`: Bucket4j token buckets in Redis, keyed by a hash of the client key, answering 429 with `Retry-After`, and allowing requests when Redis is down. Pages rendered by Next.js call the API from the web container, so per-visitor limits on them belong at the edge |
 | Email | Sent over SMTP only. **Resend** for the beta, Mailpit locally ([ADR 0007](docs/decisions/0007-email-over-smtp.md)) |
 | Money (later) | Append-only double-entry coin ledger, idempotent payment webhooks. Never a mutable balance column |
 | Time | `Instant` in UTC in Java, `timestamptz` in Postgres |
@@ -221,7 +223,7 @@ Stub modules contain only a `package-info.java` with a one-line description so t
 **discovery**
 - `series_stats`: series_id (PK), views_today, views_7d, views_all, follows, rating_avg, rating_count, updated_at (a read model fed by counters and events)
 - `series_views_daily`: series_id, day, views, PK (series_id, day)
-- Live view counts go to Redis (a sorted set per day). A job rolls them up into `series_views_daily` and `series_stats`.
+- Live view counts go to Redis (a sorted set per day). A job rolls them up into `series_views_daily` and `series_stats`, and hands the 7-day views to `catalog` (`series.popularity`) for the "Popular" browse sort.
 
 **reading**
 - `library_entries`: user_id, series_id, added_at
@@ -406,7 +408,7 @@ All of it costs $0. Every piece can be swapped by configuration.
 **Phase 1 (MVP: a readable product)**
 1. **Skeleton + catalog read slice** ← current
 2. Identity (all sign-in methods, tokens, sessions, account page)
-3. Media upload pipeline + minimal admin upload screen + scheduled publishing
+3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done)
 4. Reading: library, follows, progress sync, guest history import
 5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`)
 

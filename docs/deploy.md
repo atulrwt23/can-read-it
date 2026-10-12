@@ -232,6 +232,7 @@ All production settings go into **one Vault secret** whose content is the whole 
 
 - **Start from** [`infra/prod/.env.example`](../infra/prod/.env.example).
 - **`POSTGRES_PASSWORD`:** generate one with `openssl rand -base64 32 | tr -d '/+='`.
+- **`REVALIDATE_SECRET`** (optional): generate one with `openssl rand -hex 32`. With it, a newly published chapter shows on cached pages within seconds instead of about a minute.
 - **`S3_*`, `MEDIA_PUBLIC_BASE_URL` and `BACKUP_*`:** the values from step 1. The `BACKUP_*` values can stay empty until you create the backups bucket; only the nightly backup fails until then.
 - **Leave as they are:** `IMAGE_REGISTRY`, `COMPOSE_PROFILES=quick` and `SPRING_PROFILES_ACTIVE=prod,demo`.
 

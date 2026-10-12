@@ -3,6 +3,7 @@ package com.canreadit.shared.internal;
 import com.canreadit.shared.ApiException;
 import com.canreadit.shared.MovedPermanentlyException;
 import com.canreadit.shared.Problems;
+import com.canreadit.shared.TooManyRequestsException;
 import java.net.URI;
 import java.util.Locale;
 import org.jspecify.annotations.Nullable;
@@ -35,7 +36,11 @@ class ProblemDetailsAdvice extends ResponseEntityExceptionHandler {
     ResponseEntity<ProblemDetail> handleApiException(ApiException ex) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.status(), ex.getMessage());
         withCode(problem, ex.code());
-        return ResponseEntity.status(ex.status()).body(problem);
+        var response = ResponseEntity.status(ex.status());
+        if (ex instanceof TooManyRequestsException limited) {
+            response.header(HttpHeaders.RETRY_AFTER, Long.toString(limited.retryAfterSeconds()));
+        }
+        return response.body(problem);
     }
 
     @ExceptionHandler(MovedPermanentlyException.class)

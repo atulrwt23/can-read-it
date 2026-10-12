@@ -1,5 +1,6 @@
 import { notFound, permanentRedirect } from "next/navigation";
 import createClient from "openapi-fetch";
+import { cacheTags } from "@/lib/cache-tags";
 import type { paths } from "./schema";
 import type {
   ChapterContent,
@@ -18,11 +19,12 @@ import type {
  */
 const baseUrl = process.env.API_INTERNAL_URL ?? "http://localhost:8080";
 
-function api(revalidateSeconds: number) {
+/** Responses are cached for `revalidateSeconds`, and earlier when the API revalidates one of their `tags`. */
+function api(revalidateSeconds: number, tags: string[]) {
   return createClient<paths>({
     baseUrl,
     fetch: (request) =>
-      fetch(request, { next: { revalidate: revalidateSeconds }, redirect: "manual" }),
+      fetch(request, { next: { revalidate: revalidateSeconds, tags }, redirect: "manual" }),
   });
 }
 
@@ -67,7 +69,7 @@ function followSeriesMove(oldSlug: string, webPath: string) {
 
 export async function getHome(): Promise<HomeResponse | null> {
   try {
-    return await call(() => api(60).GET("/api/v1/home"));
+    return await call(() => api(60, [cacheTags.home]).GET("/api/v1/home"));
   } catch (error) {
     if (error instanceof ApiUnavailableError && isBuildPhase()) {
       return null;
@@ -77,7 +79,7 @@ export async function getHome(): Promise<HomeResponse | null> {
 }
 
 export async function getGenres(): Promise<Genre[]> {
-  return call(() => api(3600).GET("/api/v1/genres"));
+  return call(() => api(3600, [cacheTags.genres]).GET("/api/v1/genres"));
 }
 
 export interface BrowseParams {
@@ -85,18 +87,23 @@ export interface BrowseParams {
   type?: SeriesType;
   status?: SeriesStatus;
   genres?: string[];
-  sort?: "UPDATED" | "NEWEST" | "TITLE";
+  sort?: "UPDATED" | "POPULAR" | "NEWEST" | "TITLE";
   cursor?: string;
   limit?: number;
 }
 
 export async function browseSeries(params: BrowseParams): Promise<SeriesPage> {
-  return call(() => api(60).GET("/api/v1/series", { params: { query: params } }));
+  return call(() =>
+    api(60, [cacheTags.seriesLists]).GET("/api/v1/series", { params: { query: params } }),
+  );
 }
 
 export async function getSeries(slug: string): Promise<SeriesDetail> {
   return call(
-    () => api(60).GET("/api/v1/series/{slug}", { params: { path: { slug } } }),
+    () =>
+      api(60, [cacheTags.series(slug)]).GET("/api/v1/series/{slug}", {
+        params: { path: { slug } },
+      }),
     followSeriesMove(slug, `/series/${slug}`),
   );
 }
@@ -106,7 +113,10 @@ export async function getChapters(
   query: { order?: "ASC" | "DESC"; limit?: number; cursor?: string } = {},
 ): Promise<ChapterPage> {
   return call(
-    () => api(60).GET("/api/v1/series/{slug}/chapters", { params: { path: { slug }, query } }),
+    () =>
+      api(60, [cacheTags.series(slug)]).GET("/api/v1/series/{slug}/chapters", {
+        params: { path: { slug }, query },
+      }),
     followSeriesMove(slug, `/series/${slug}`),
   );
 }
@@ -114,7 +124,7 @@ export async function getChapters(
 export async function getChapter(slug: string, number: string): Promise<ChapterContent> {
   return call(
     () =>
-      api(300).GET("/api/v1/series/{slug}/chapters/{number}", {
+      api(300, [cacheTags.series(slug)]).GET("/api/v1/series/{slug}/chapters/{number}", {
         params: { path: { slug, number } },
       }),
     followSeriesMove(slug, `/series/${slug}/chapter/${number}`),

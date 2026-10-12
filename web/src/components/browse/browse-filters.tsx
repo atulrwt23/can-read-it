@@ -94,6 +94,7 @@ export function BrowseFilters({ params, genres }: { params: BrowseParams; genres
             onChange={(e) => update({ sort: e.target.value as BrowseParams["sort"] })}
           >
             <option value="UPDATED">Latest update</option>
+            <option value="POPULAR">Popular this week</option>
             <option value="NEWEST">Newest</option>
             <option value="TITLE">Title A–Z</option>
           </select>

@@ -71,7 +71,7 @@ load_env() {
 }
 
 # Settings in .env.example that may stay empty, and those only the nightly backup needs.
-OPTIONAL_SETTINGS="TUNNEL_TOKEN COMPOSE_PROFILES"
+OPTIONAL_SETTINGS="TUNNEL_TOKEN COMPOSE_PROFILES REVALIDATE_SECRET"
 BACKUP_SETTINGS="BACKUP_S3_ENDPOINT BACKUP_BUCKET BACKUP_S3_ACCESS_KEY BACKUP_S3_SECRET_KEY"
 
 # Prints the names (never values) of empty settings that `app` or `backup` needs, one per line.

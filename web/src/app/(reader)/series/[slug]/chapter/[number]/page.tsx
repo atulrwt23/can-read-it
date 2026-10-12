@@ -4,6 +4,7 @@ import { permanentRedirect } from "next/navigation";
 import { NovelBody, NovelSettingsButton } from "@/components/reader/novel-reader";
 import { ReaderBar } from "@/components/reader/reader-bar";
 import { ReadingTracker } from "@/components/reader/reading-tracker";
+import { ViewBeacon } from "@/components/reader/view-beacon";
 import { getChapter, getChapters } from "@/lib/api/server";
 import { chapterPath, seriesPath } from "@/lib/routes";
 
@@ -114,6 +115,7 @@ export default async function ChapterPage({ params }: Props) {
         </nav>
       </main>
       <ReadingTracker slug={slug} number={chapter.number} />
+      <ViewBeacon slug={slug} />
     </>
   );
 }

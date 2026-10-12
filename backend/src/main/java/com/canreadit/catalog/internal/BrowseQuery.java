@@ -19,6 +19,6 @@ record BrowseQuery(
         int limit,
         @Nullable After after) {
 
-    /** @param key the sort key of the last row (ISO instant or title) */
+    /** @param key the sort key of the last row (ISO instant, title or popularity) */
     record After(String key, UUID id) {}
 }

@@ -6,5 +6,7 @@ enum BrowseSort {
     /** Most recently added first. */
     NEWEST,
     /** Alphabetical. */
-    TITLE
+    TITLE,
+    /** Most viewed in the last 7 days first. */
+    POPULAR
 }

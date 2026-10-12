@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/v1/series/{slug}/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["view"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series": {
         parameters: {
             query?: never;
@@ -234,6 +250,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    view: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     browse: {
         parameters: {
             query?: {
@@ -241,7 +277,7 @@ export interface operations {
                 type?: "MANHWA" | "NOVEL";
                 status?: "ONGOING" | "COMPLETED" | "HIATUS";
                 genres?: string[];
-                sort?: "UPDATED" | "NEWEST" | "TITLE";
+                sort?: "UPDATED" | "NEWEST" | "TITLE" | "POPULAR";
                 cursor?: string;
                 limit?: number;
             };

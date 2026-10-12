@@ -116,6 +116,7 @@ public final class CatalogFixtures {
         private @Nullable Instant lastPublishedAt;
         private Instant createdAt = Instant.parse("2026-01-01T00:00:00Z");
         private List<UUID> genres = List.of();
+        private long popularity;
 
         SeriesBuilder(String slug) {
             this.slug = slug;
@@ -167,6 +168,11 @@ public final class CatalogFixtures {
             return this;
         }
 
+        public SeriesBuilder popularity(long value) {
+            popularity = value;
+            return this;
+        }
+
         public SeriesBuilder genres(UUID... values) {
             genres = List.of(values);
             return this;
@@ -177,8 +183,9 @@ public final class CatalogFixtures {
             UUID id = Ids.newId();
             jdbc.sql("""
                             insert into catalog.series (id, slug, title, alt_titles, synopsis, type, status, visibility,
-                                cover_asset_id, last_published_at, created_at)
-                            values (:id, :slug, :title, :alt, :synopsis, :type, :status, :visibility, :cover, :last, :created)
+                                cover_asset_id, last_published_at, created_at, popularity)
+                            values (:id, :slug, :title, :alt, :synopsis, :type, :status, :visibility, :cover, :last, :created,
+                                :popularity)
                             """)
                     .param("id", id)
                     .param("slug", slug)
@@ -193,6 +200,7 @@ public final class CatalogFixtures {
                             "last",
                             lastPublishedAt == null ? null : OffsetDateTime.ofInstant(lastPublishedAt, ZoneOffset.UTC))
                     .param("created", OffsetDateTime.ofInstant(createdAt, ZoneOffset.UTC))
+                    .param("popularity", popularity)
                     .update();
             for (UUID genre : genres) {
                 jdbc.sql("insert into catalog.series_genres (series_id, genre_id) values (:s, :g)")

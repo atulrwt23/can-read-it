@@ -108,7 +108,7 @@ Losing Redis never loses committed data. At worst, rankings lose up to one roll-
 1. The browser requests `/series/{slug}/chapter/{n}`. The CDN serves cached HTML if present; otherwise Next.js renders it.
 2. Next.js calls `GET /api/v1/series/{slug}/chapters/{n}`. `catalog` checks the visibility rule, loads the page rows, and calls `MediaUrls.resolve(assetIds, PAGE)` once for the whole chapter.
 3. The response contains page URLs with `width` and `height`, so the page renders with no layout shift. Images load straight from `cdn.` (R2).
-4. The client sends a view beacon. `discovery` increments the Redis counter for the series and day. Guests keep progress in localStorage.
+4. The client sends a view beacon. `discovery` counts it once per visitor, series and day in Redis (details in [modules/discovery.md](modules/discovery.md)). Guests keep progress in localStorage.
 
 ### Publish a scheduled chapter ([ADR 0006](decisions/0006-scheduled-publishing-visibility.md))
 1. The chapter is saved with `status = SCHEDULED` and `publish_at = T`.
@@ -118,13 +118,13 @@ Losing Redis never loses committed data. At worst, rankings lose up to one roll-
    - updates `series.last_published_at`
    - emits `ChapterPublished` through the Modulith outbox
 4. Listeners react:
-   - `discovery` refreshes "latest updates"
+   - `discovery` asks the web app to refresh the cached home, browse and series pages (`POST /internal/revalidate`, cache tags)
    - `notifications` emails followers (phase 2)
-   - a web revalidation hook purges the Next.js cache for the series pages
 
 ### Home and rankings ([ADR 0005](decisions/0005-discovery-owns-home-and-rankings.md))
 - `GET /api/v1/home` is served by `discovery`. It reads featured and latest series from `catalog`'s public API and rankings from `discovery.series_stats`.
 - View counters go from Redis (`views:{yyyy-mm-dd}` sorted sets) to Postgres through a roll-up job every few minutes. "Today", "week" and "all time" are computed from `series_views_daily`.
+- The roll-up hands each series' 7-day views to `catalog.SeriesPopularity`, so browse can sort by popularity without reading another module's schema.
 - The response is cached briefly (`Cache-Control: public, s-maxage=60`).
 
 ### Media URL resolution ([ADR 0004](decisions/0004-media-url-resolver-and-asset-visibility.md))
