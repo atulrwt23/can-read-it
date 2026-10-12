@@ -6,12 +6,25 @@
 const KEY = "canreadit:history:v1";
 const MAX_SERIES = 200;
 
+/** What "Continue reading" shows for a series, saved while reading so the home page needs no request. */
+export interface SeriesMeta {
+  title: string;
+  type: "MANHWA" | "NOVEL";
+  cover?: { url: string; width: number; height: number } | null;
+}
+
 export interface Progress {
   /** Chapter number as the API formats it, e.g. "12.5". */
   number: string;
   /** Scroll position within the chapter, 0–1. */
   position: number;
   updatedAt: string;
+  /** Missing for progress saved before it was recorded; filled in the next time the series is read. */
+  series?: SeriesMeta;
+}
+
+export interface RecentSeries extends Progress {
+  slug: string;
 }
 
 type History = Record<string, Progress>;
@@ -30,17 +43,28 @@ export function getProgress(seriesSlug: string): Progress | undefined {
   return read()[seriesSlug];
 }
 
+/** The most recently read series first, at most `limit`. */
+export function recentSeries(limit: number): RecentSeries[] {
+  return Object.entries(read())
+    .filter(([, progress]) => typeof progress?.updatedAt === "string")
+    .sort(([, a], [, b]) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, limit)
+    .map(([slug, progress]) => ({ slug, ...progress }));
+}
+
 export function saveProgress(
   seriesSlug: string,
   number: string,
   position: number,
   now = new Date(),
+  series?: SeriesMeta,
 ) {
   const history = read();
   history[seriesSlug] = {
     number,
     position: Math.min(1, Math.max(0, position)),
     updatedAt: now.toISOString(),
+    series: series ?? history[seriesSlug]?.series,
   };
   // Keep the most recently read series only.
   const kept = Object.entries(history)
