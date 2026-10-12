@@ -7,56 +7,78 @@ import type { SeriesCard } from "@/lib/api/types";
 import { label } from "@/lib/format";
 import { seriesPath } from "@/lib/routes";
 
-/** Header search with type-ahead suggestions (a combobox with a listbox popup). */
+const MIN_LENGTH = 2;
+
+type Status = "idle" | "loading" | "done" | "error";
+
+/**
+ * Header search with type-ahead suggestions (a combobox with a listbox popup). The last option always opens the
+ * full results, so Enter works even when suggestions are slow or unavailable.
+ */
 export function SearchBox({ className = "" }: { className?: string }) {
   const router = useRouter();
   const listId = useId();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SeriesCard[]>([]);
+  const [status, setStatus] = useState<Status>("idle");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const request = useRef(0);
 
+  const q = query.trim();
+  const searchable = q.length >= MIN_LENGTH;
+
   useEffect(() => {
-    const q = query.trim();
-    if (q.length < 2) {
+    const text = query.trim();
+    const id = ++request.current;
+    if (text.length < MIN_LENGTH) {
       setResults([]);
+      setStatus("idle");
       return;
     }
-    const id = ++request.current;
+    setStatus("loading");
     const timer = setTimeout(async () => {
-      const { data } = await browserApi.GET("/api/v1/series", {
-        params: { query: { q, limit: 6 } },
-      });
-      if (id === request.current) {
-        setResults(data?.items ?? []);
-        setActive(-1);
-      }
+      const { data } = await browserApi
+        .GET("/api/v1/series", { params: { query: { q: text, limit: 6 } } })
+        .catch(() => ({ data: undefined }));
+      if (id !== request.current) return;
+      setResults(data?.items ?? []);
+      setStatus(data ? "done" : "error");
+      setActive(-1);
     }, 250);
     return () => clearTimeout(timer);
   }, [query]);
 
-  const expanded = open && results.length > 0;
+  const expanded = open && searchable;
+  // Suggestions, then "See all results".
+  const optionCount = searchable ? results.length + 1 : 0;
+  const allResultsPath = `/browse?q=${encodeURIComponent(q)}`;
 
   function go(path: string) {
     setOpen(false);
     router.push(path);
   }
 
+  function choose(index: number) {
+    const series = results[index];
+    go(series ? seriesPath(series.slug) : allResultsPath);
+  }
+
   function onKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
-    if (event.key === "ArrowDown" && results.length > 0) {
+    if (event.key === "ArrowDown" && optionCount > 0) {
       event.preventDefault();
       setOpen(true);
-      setActive((i) => (i + 1) % results.length);
-    } else if (event.key === "ArrowUp" && results.length > 0) {
+      setActive((i) => (i + 1) % optionCount);
+    } else if (event.key === "ArrowUp" && optionCount > 0) {
       event.preventDefault();
-      setActive((i) => (i <= 0 ? results.length - 1 : i - 1));
+      setOpen(true);
+      setActive((i) => (i <= 0 ? optionCount - 1 : i - 1));
     } else if (event.key === "Escape") {
       setOpen(false);
+      setActive(-1);
     } else if (event.key === "Enter" && expanded && active >= 0) {
       event.preventDefault();
-      const selected = results[active];
-      if (selected) go(seriesPath(selected.slug));
+      choose(active);
     }
   }
 
@@ -66,13 +88,14 @@ export function SearchBox({ className = "" }: { className?: string }) {
         action="/browse"
         onSubmit={(event) => {
           event.preventDefault();
-          go(`/browse?q=${encodeURIComponent(query.trim())}`);
+          if (q) go(allResultsPath);
         }}
       >
         <input
           type="search"
           name="q"
           value={query}
+          maxLength={100}
           onChange={(event) => {
             setQuery(event.target.value);
             setOpen(true);
@@ -86,49 +109,83 @@ export function SearchBox({ className = "" }: { className?: string }) {
           aria-expanded={expanded}
           aria-controls={listId}
           aria-autocomplete="list"
-          aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+          aria-activedescendant={expanded && active >= 0 ? `${listId}-${active}` : undefined}
           autoComplete="off"
           className="h-9 w-full rounded border border-line bg-surface px-3 text-sm placeholder:text-muted focus:border-primary-text focus:outline-none"
         />
+        <p role="status" className="sr-only">
+          {expanded ? statusText(status, results.length) : ""}
+        </p>
         {expanded && (
-          <div
-            id={listId}
-            role="listbox"
-            aria-label="Suggestions"
-            className="absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-md border border-line bg-surface shadow-card"
-          >
-            {results.map((series, index) => (
+          <div className="absolute top-full right-0 left-0 z-30 mt-1 overflow-hidden rounded-md border border-line bg-surface shadow-card">
+            {status !== "done" || results.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-muted">{statusText(status, results.length)}</p>
+            ) : null}
+            <div id={listId} role="listbox" aria-label="Suggestions">
+              {results.map((series, index) => (
+                <div
+                  key={series.id}
+                  id={`${listId}-${index}`}
+                  role="option"
+                  tabIndex={-1}
+                  aria-selected={index === active}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    choose(index);
+                  }}
+                  onMouseEnter={() => setActive(index)}
+                  className={`flex cursor-pointer items-center gap-3 px-3 py-2 ${index === active ? "bg-raised" : ""}`}
+                >
+                  {series.cover ? (
+                    <img
+                      src={series.cover.url}
+                      alt=""
+                      width={32}
+                      height={48}
+                      className="h-12 w-8 rounded object-cover"
+                    />
+                  ) : (
+                    <span className="h-12 w-8 rounded bg-raised" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                    {series.title}
+                  </span>
+                  <span className="text-xs text-muted">{label(series.type)}</span>
+                </div>
+              ))}
               <div
-                key={series.id}
-                id={`${listId}-${index}`}
+                id={`${listId}-${results.length}`}
                 role="option"
                 tabIndex={-1}
-                aria-selected={index === active}
+                aria-selected={active === results.length}
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  go(seriesPath(series.slug));
+                  choose(results.length);
                 }}
-                onMouseEnter={() => setActive(index)}
-                className={`flex cursor-pointer items-center gap-3 px-3 py-2 ${index === active ? "bg-raised" : ""}`}
+                onMouseEnter={() => setActive(results.length)}
+                className={`cursor-pointer border-t border-line px-3 py-2 text-sm font-semibold text-primary-text ${active === results.length ? "bg-raised" : ""}`}
               >
-                {series.cover ? (
-                  <img
-                    src={series.cover.url}
-                    alt=""
-                    width={32}
-                    height={48}
-                    className="h-12 w-8 rounded object-cover"
-                  />
-                ) : (
-                  <span className="h-12 w-8 rounded bg-raised" />
-                )}
-                <span className="min-w-0 flex-1 truncate text-sm font-medium">{series.title}</span>
-                <span className="text-xs text-muted">{label(series.type)}</span>
+                See all results for “{q}”
               </div>
-            ))}
+            </div>
           </div>
         )}
       </form>
     </search>
   );
+}
+
+function statusText(status: Status, count: number): string {
+  switch (status) {
+    case "loading":
+      return "Searching…";
+    case "error":
+      return "Suggestions are unavailable. Press Enter to search.";
+    case "done":
+      return count === 0
+        ? "No titles match yet. Press Enter to search everything."
+        : `${count} suggestions`;
+    default:
+      return "";
+  }
 }
