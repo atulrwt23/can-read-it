@@ -20,6 +20,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/sessions/revoke-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["revokeOtherSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/identities/{provider}": {
         parameters: {
             query?: never;
@@ -212,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["me"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAccount"];
+        options?: never;
+        head?: never;
+        patch: operations["updateProfile"];
+        trace?: never;
+    };
     "/api/v1/series": {
         parameters: {
             query?: never;
@@ -276,14 +324,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/me": {
+    "/api/v1/me/sessions": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get: operations["me"];
+        get: operations["sessions"];
         put?: never;
         post?: never;
         delete?: never;
@@ -324,10 +372,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/sessions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["revokeSession"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ChangePassword: {
+            currentPassword?: string | null;
+            newPassword: string;
+        };
         OAuthToken: {
             idToken: string;
             nonce: string;
@@ -345,6 +413,8 @@ export interface components {
             email?: string | null;
             emailVerified: boolean;
             roles: string[];
+            hasPassword: boolean;
+            providers: string[];
             /** Format: date-time */
             createdAt: string;
         };
@@ -376,6 +446,10 @@ export interface components {
             /** Format: email */
             email: string;
             botToken?: string | null;
+        };
+        UpdateProfile: {
+            handle?: string | null;
+            displayName?: string | null;
         };
         ChapterSummary: {
             number: string;
@@ -484,6 +558,17 @@ export interface components {
             type: "MANHWA" | "NOVEL";
             cover?: components["schemas"]["ImageRef"] | null;
         };
+        SessionView: {
+            /** Format: uuid */
+            id: string;
+            current: boolean;
+            userAgent?: string | null;
+            ip?: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt: string;
+        };
         HomeResponse: {
             featured: components["schemas"]["SeriesCard"][];
             latestUpdates: components["schemas"]["SeriesCard"][];
@@ -500,6 +585,13 @@ export interface components {
             /** Format: int64 */
             views: number;
             series: components["schemas"]["SeriesCard"];
+        };
+        DeleteAccount: {
+            currentPassword?: string | null;
+        };
+        DeletionResponse: {
+            /** Format: date-time */
+            eraseAfter: string;
         };
     };
     responses: never;
@@ -520,6 +612,46 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    revokeOtherSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePassword"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -812,6 +944,74 @@ export interface operations {
             };
         };
     };
+    me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
+    deleteAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeleteAccount"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["DeletionResponse"];
+                };
+            };
+        };
+    };
+    updateProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateProfile"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MeResponse"];
+                };
+            };
+        };
+    };
     browse: {
         parameters: {
             query?: {
@@ -914,7 +1114,7 @@ export interface operations {
             };
         };
     };
-    me: {
+    sessions: {
         parameters: {
             query?: never;
             header?: never;
@@ -929,7 +1129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["MeResponse"];
+                    "*/*": components["schemas"]["SessionView"][];
                 };
             };
         };
@@ -971,6 +1171,26 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["Genre"][];
                 };
+            };
+        };
+    };
+    revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
