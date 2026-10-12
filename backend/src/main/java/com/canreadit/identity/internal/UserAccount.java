@@ -1,0 +1,124 @@
+package com.canreadit.identity.internal;
+
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
+import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
+import org.springframework.data.domain.Persistable;
+
+/** A reader's account ({@code identity.users} with its roles). The ID is a UUIDv7 made by the application. */
+@Entity
+@Table(name = "users", schema = "identity")
+class UserAccount implements Persistable<UUID> {
+
+    @Id
+    private UUID id;
+
+    /** Stored as citext; compare through {@link UserAccounts}, which casts, never in Java. */
+    @Column(name = "email")
+    private @Nullable String email;
+
+    @Column(name = "email_verified_at")
+    private @Nullable Instant emailVerifiedAt;
+
+    @Column(name = "handle", nullable = false)
+    private String handle;
+
+    @Column(name = "display_name", nullable = false)
+    private String displayName;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private UserStatus status;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles", schema = "identity", joinColumns = @JoinColumn(name = "user_id"))
+    private Set<RoleGrant> roles = new HashSet<>();
+
+    @Transient
+    private boolean isNew;
+
+    /** For JPA. */
+    protected UserAccount() {}
+
+    /** A new reader: unverified email, the handle as display name (CLAUDE.md section 7). */
+    UserAccount(UUID id, String email, String handle, Instant now) {
+        this.id = id;
+        this.email = email;
+        this.handle = handle;
+        // TODO(product): a separate display name at sign-up; until then it starts as the handle.
+        this.displayName = handle;
+        this.status = UserStatus.ACTIVE;
+        this.createdAt = now;
+        this.updatedAt = now;
+        this.roles.add(new RoleGrant(Role.READER, null, now));
+        this.isNew = true;
+    }
+
+    @Override
+    public UUID getId() {
+        return id;
+    }
+
+    @Override
+    public boolean isNew() {
+        return isNew;
+    }
+
+    @PostLoad
+    @PostPersist
+    void markStored() {
+        isNew = false;
+    }
+
+    @Nullable
+    String email() {
+        return email;
+    }
+
+    boolean emailVerified() {
+        return emailVerifiedAt != null;
+    }
+
+    String handle() {
+        return handle;
+    }
+
+    String displayName() {
+        return displayName;
+    }
+
+    UserStatus status() {
+        return status;
+    }
+
+    Instant createdAt() {
+        return createdAt;
+    }
+
+    /** Role names, highest privileges last, for tokens and responses. */
+    List<String> roleNames() {
+        return roles.stream().map(RoleGrant::role).sorted().map(Role::name).toList();
+    }
+}
