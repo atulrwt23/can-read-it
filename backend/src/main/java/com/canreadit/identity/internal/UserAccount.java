@@ -62,10 +62,16 @@ class UserAccount implements Persistable<UUID> {
     /** For JPA. */
     protected UserAccount() {}
 
-    /** A new reader: unverified email, the handle as display name (CLAUDE.md section 7). */
+    /** A new reader with an unverified email and the handle as display name (CLAUDE.md section 7). */
     UserAccount(UUID id, String email, String handle, Instant now) {
+        this(id, email, handle, now, false);
+    }
+
+    /** A new reader whose email may already be proven (they signed up with an emailed code). */
+    UserAccount(UUID id, String email, String handle, Instant now, boolean emailVerified) {
         this.id = id;
         this.email = email;
+        this.emailVerifiedAt = emailVerified ? now : null;
         this.handle = handle;
         // TODO(product): a separate display name at sign-up; until then it starts as the handle.
         this.displayName = handle;
@@ -99,6 +105,16 @@ class UserAccount implements Persistable<UUID> {
 
     boolean emailVerified() {
         return emailVerifiedAt != null;
+    }
+
+    /** Records that the user proved they own the email. Returns whether this changed anything. */
+    boolean markEmailVerified(Instant now) {
+        if (emailVerifiedAt != null) {
+            return false;
+        }
+        emailVerifiedAt = now;
+        updatedAt = now;
+        return true;
     }
 
     String handle() {

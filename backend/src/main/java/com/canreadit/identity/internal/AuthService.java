@@ -1,5 +1,6 @@
 package com.canreadit.identity.internal;
 
+import com.canreadit.identity.AccountEmailRequested;
 import com.canreadit.identity.UserRegistered;
 import com.canreadit.shared.ApiException;
 import com.canreadit.shared.Ids;
@@ -19,13 +20,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
 /**
- * Password sign-in and sessions (CLAUDE.md section 7). Every success opens a session with a one-time refresh token
- * and a short access token. Failures are logged in their own commit, so the audit trail survives the error.
+ * Password sign-up and sign-in, refresh and sign-out (CLAUDE.md section 7). Every sign-in opens a session with a
+ * one-time refresh token and a short access token. Failures are logged in their own commit, so the audit trail
+ * survives the error.
  */
 @Service
 class AuthService {
 
     static final RateLimit REGISTER_PER_IP = new RateLimit("register-ip", 10, Duration.ofHours(1));
+    static final RateLimit REGISTER_PER_EMAIL = new RateLimit("register-email", 5, Duration.ofHours(1));
     static final RateLimit LOGIN_PER_IP = new RateLimit("login-ip", 30, Duration.ofMinutes(15));
     static final RateLimit LOGIN_PER_EMAIL = new RateLimit("login-email", 10, Duration.ofMinutes(15));
     static final RateLimit REFRESH_PER_IP = new RateLimit("refresh-ip", 120, Duration.ofMinutes(1));
@@ -40,9 +43,10 @@ class AuthService {
     private final Credentials credentials;
     private final AuthSessions sessions;
     private final RefreshTokens refreshTokens;
+    private final SessionIssuer sessionIssuer;
+    private final VerificationCodes codes;
     private final PasswordHasher passwords;
     private final AccessTokens accessTokens;
-    private final SessionDenylist denylist;
     private final LoginThrottle throttle;
     private final RateLimiter rateLimiter;
     private final BotChallengeVerifier botChallenge;
@@ -57,9 +61,10 @@ class AuthService {
             Credentials credentials,
             AuthSessions sessions,
             RefreshTokens refreshTokens,
+            SessionIssuer sessionIssuer,
+            VerificationCodes codes,
             PasswordHasher passwords,
             AccessTokens accessTokens,
-            SessionDenylist denylist,
             LoginThrottle throttle,
             RateLimiter rateLimiter,
             BotChallengeVerifier botChallenge,
@@ -72,9 +77,10 @@ class AuthService {
         this.credentials = credentials;
         this.sessions = sessions;
         this.refreshTokens = refreshTokens;
+        this.sessionIssuer = sessionIssuer;
+        this.codes = codes;
         this.passwords = passwords;
         this.accessTokens = accessTokens;
-        this.denylist = denylist;
         this.throttle = throttle;
         this.rateLimiter = rateLimiter;
         this.botChallenge = botChallenge;
@@ -85,38 +91,47 @@ class AuthService {
         this.clock = clock;
     }
 
-    /** A signed-in session: what the cookies (or a mobile client) carry. */
-    record SignedIn(UserAccount user, AccessTokens.Issued access, String refreshToken, Instant refreshExpiresAt) {}
-
-    SignedIn register(String email, String password, String handle, @Nullable String botToken, ClientInfo client) {
-        rateLimiter.check(REGISTER_PER_IP, client.ipText());
-        if (!botChallenge.verify(botToken, client.ipText())) {
-            throw ApiException.badRequest("bot_check_failed", "The bot check failed. Reload the page and try again.");
-        }
+    /**
+     * Creates an account with a password and emails a code that confirms the email and signs in. The answer is the
+     * same whether or not the email already has an account (CLAUDE.md section 7): an existing owner gets a notice
+     * by email instead, and both paths hash the password, so they take as long. Only a taken handle is reported,
+     * because handles are public anyway.
+     */
+    void register(String email, String password, String handle, @Nullable String botToken, ClientInfo client) {
         String cleanEmail = email.strip();
-        // TODO(product): this tells whether an email has an account, which CLAUDE.md section 7 rules out. Once
-        // email codes exist (step 2b), registering answers the same for new and existing emails and the owner of an
-        // existing account gets an email instead.
-        if (users.emailTaken(cleanEmail)) {
-            throw new ApiException(HttpStatus.CONFLICT, "email_taken", "An account with this email already exists.");
+        rateLimiter.check(REGISTER_PER_IP, client.ipText());
+        rateLimiter.check(REGISTER_PER_EMAIL, LoginThrottle.normalize(cleanEmail));
+        if (!botChallenge.verify(botToken, client.ipText())) {
+            throw AuthErrors.botCheckFailed();
         }
         if (users.handleTaken(handle)) {
-            throw new ApiException(HttpStatus.CONFLICT, "handle_taken", "This handle is taken.");
+            throw AuthErrors.handleTaken();
         }
         String hash = passwords.hash(password);
+        AccountEmailRequested message;
         try {
-            return tx.execute(status -> {
+            message = Objects.requireNonNull(tx.execute(status -> {
+                if (users.emailTaken(cleanEmail)) {
+                    return new AccountEmailRequested(
+                            cleanEmail, AccountEmailRequested.Kind.ACCOUNT_EXISTS, null, Duration.ZERO);
+                }
                 Instant now = clock.instant();
                 var user = users.save(new UserAccount(Ids.newId(), cleanEmail, handle, now));
                 credentials.save(new Credential(user.getId(), hash, now));
                 events.record(AuthEventLog.Type.REGISTERED, user.getId(), client);
                 publisher.publishEvent(new UserRegistered(user.getId(), user.handle(), now));
-                return openSession(user, client, now);
-            });
+                String code = codes.issue(cleanEmail, VerificationCodes.Purpose.VERIFY_EMAIL, now);
+                return new AccountEmailRequested(
+                        cleanEmail, AccountEmailRequested.Kind.CONFIRM_EMAIL_CODE, code, VerificationCodes.LIFETIME);
+            }));
         } catch (DataIntegrityViolationException e) {
-            // Someone took the email or handle between the checks and the insert.
-            throw new ApiException(HttpStatus.CONFLICT, "account_conflict", "This email or handle was just taken.");
+            // Someone took the handle or the email between the checks and the insert.
+            if (users.handleTaken(handle)) {
+                throw AuthErrors.handleTaken();
+            }
+            return;
         }
+        publisher.publishEvent(message);
     }
 
     SignedIn login(String email, String password, ClientInfo client) {
@@ -136,19 +151,18 @@ class AuthService {
                     AuthEventLog.Type.SIGN_IN_FAILED,
                     user.map(UserAccount::getId).orElse(null),
                     client);
-            throw invalidCredentials();
+            throw AuthErrors.invalidCredentials();
         }
         UserAccount account = user.orElseThrow();
         if (account.status() != UserStatus.ACTIVE) {
             // The password was right, so saying why reveals nothing to a guesser.
-            throw new ApiException(HttpStatus.FORBIDDEN, "account_unavailable", "This account can't sign in.");
+            throw AuthErrors.accountUnavailable();
         }
         throttle.succeeded(cleanEmail);
-        return tx.execute(status -> {
-            Instant now = clock.instant();
+        return Objects.requireNonNull(tx.execute(status -> {
             events.record(AuthEventLog.Type.SIGNED_IN, account.getId(), client);
-            return openSession(account, client, now);
-        });
+            return sessionIssuer.open(account, client, clock.instant());
+        }));
     }
 
     /**
@@ -158,60 +172,42 @@ class AuthService {
     SignedIn refresh(String presentedToken, ClientInfo client) {
         rateLimiter.check(REFRESH_PER_IP, client.ipText());
         String hash = OpaqueTokens.hash(presentedToken);
-        // A failure still commits (a reused token revokes its session), so it comes back as a value, not a throw.
-        RefreshOutcome outcome = tx.execute(status -> rotate(hash, client));
-        if (outcome.error() != null) {
-            throw outcome.error();
-        }
-        return Objects.requireNonNull(outcome.signedIn());
+        return Objects.requireNonNull(tx.execute(status -> rotate(hash, client)))
+                .get();
     }
 
-    private record RefreshOutcome(
-            @Nullable SignedIn signedIn, @Nullable ApiException error) {
-
-        static RefreshOutcome succeeded(SignedIn signedIn) {
-            return new RefreshOutcome(signedIn, null);
-        }
-
-        static RefreshOutcome failed(ApiException error) {
-            return new RefreshOutcome(null, error);
-        }
-    }
-
-    private RefreshOutcome rotate(String hash, ClientInfo client) {
+    private Outcome<SignedIn> rotate(String hash, ClientInfo client) {
         Instant now = clock.instant();
         RefreshToken token = refreshTokens.findByHashForUpdate(hash).orElse(null);
         if (token == null) {
-            return RefreshOutcome.failed(invalidRefresh());
+            return Outcome.failed(AuthErrors.invalidRefresh());
         }
         AuthSession session = sessions.findForUpdate(token.sessionId()).orElse(null);
         if (session == null || !session.isActive(now)) {
-            return RefreshOutcome.failed(invalidRefresh());
+            return Outcome.failed(AuthErrors.invalidRefresh());
         }
         Instant usedAt = token.usedAt();
         if (usedAt != null) {
             if (usedAt.plus(REFRESH_RACE_GRACE).isAfter(now)) {
-                return RefreshOutcome.failed(new ApiException(
+                return Outcome.failed(new ApiException(
                         HttpStatus.CONFLICT, "refresh_superseded", "This session was just refreshed. Try again."));
             }
-            session.revoke(now);
-            denylist.revoke(session.getId());
+            sessionIssuer.revoke(session, now);
             events.record(AuthEventLog.Type.REFRESH_REUSED, session.userId(), client);
-            return RefreshOutcome.failed(invalidRefresh());
+            return Outcome.failed(AuthErrors.invalidRefresh());
         }
         if (token.isExpired(now)) {
-            return RefreshOutcome.failed(invalidRefresh());
+            return Outcome.failed(AuthErrors.invalidRefresh());
         }
         UserAccount user = users.findById(session.userId()).orElse(null);
         if (user == null || user.status() != UserStatus.ACTIVE) {
-            session.revoke(now);
-            denylist.revoke(session.getId());
-            return RefreshOutcome.failed(invalidRefresh());
+            sessionIssuer.revoke(session, now);
+            return Outcome.failed(AuthErrors.invalidRefresh());
         }
         token.markUsed(now);
         Instant expiresAt = now.plus(properties.refreshTokenTtl());
         session.extend(now, expiresAt);
-        return RefreshOutcome.succeeded(issue(user, session.getId(), now, expiresAt));
+        return Outcome.ok(sessionIssuer.issue(user, session.getId(), now, expiresAt));
     }
 
     /** Ends the session the access token belongs to. Signing out always succeeds, even without a session. */
@@ -225,34 +221,12 @@ class AuthService {
         }
         tx.executeWithoutResult(status -> sessions.findForUpdate(sessionId.get())
                 .ifPresent(session -> {
-                    session.revoke(clock.instant());
+                    sessionIssuer.revoke(session, clock.instant());
                     events.record(AuthEventLog.Type.SIGNED_OUT, session.userId(), client);
                 }));
-        denylist.revoke(sessionId.get());
     }
 
     Optional<UserAccount> user(UUID id) {
         return users.findById(id);
-    }
-
-    private SignedIn openSession(UserAccount user, ClientInfo client, Instant now) {
-        Instant expiresAt = now.plus(properties.refreshTokenTtl());
-        var session = sessions.save(new AuthSession(Ids.newId(), user.getId(), client, now, expiresAt));
-        return issue(user, session.getId(), now, expiresAt);
-    }
-
-    private SignedIn issue(UserAccount user, UUID sessionId, Instant now, Instant refreshExpiresAt) {
-        String refresh = OpaqueTokens.generate();
-        refreshTokens.save(new RefreshToken(Ids.newId(), sessionId, OpaqueTokens.hash(refresh), now, refreshExpiresAt));
-        var access = accessTokens.issue(user.getId(), sessionId, user.roleNames(), user.emailVerified());
-        return new SignedIn(user, access, refresh, refreshExpiresAt);
-    }
-
-    private static ApiException invalidCredentials() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, "invalid_credentials", "The email or password is wrong.");
-    }
-
-    private static ApiException invalidRefresh() {
-        return new ApiException(HttpStatus.UNAUTHORIZED, "invalid_refresh", "Sign in again.");
     }
 }

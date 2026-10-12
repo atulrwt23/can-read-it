@@ -25,7 +25,29 @@ final class AuthRequests {
             @NotNull @Pattern(regexp = HANDLE) String handle,
             @Size(max = 2048) @Nullable String botToken) {}
 
+    /** A one-time code from an email: 6 digits. */
+    static final String CODE = "^[0-9]{6}$";
+
     record Login(
             @NotBlank @Size(max = 254) String email,
             @NotNull @Size(max = 128) String password) {}
+
+    record EmailStart(
+            @NotBlank @Email @Size(max = 254) String email,
+            @Size(max = 2048) @Nullable String botToken) {}
+
+    /** @param handle used only when the code creates an account; otherwise one is generated */
+    record EmailVerify(
+            @NotBlank @Size(max = 254) String email,
+            @NotNull @Pattern(regexp = CODE) String code,
+            @Pattern(regexp = HANDLE) @Nullable String handle) {}
+
+    record ForgotPassword(
+            @NotBlank @Email @Size(max = 254) String email,
+            @Size(max = 2048) @Nullable String botToken) {}
+
+    record ResetPassword(
+            @NotBlank @Size(max = 254) String email,
+            @NotNull @Pattern(regexp = CODE) String code,
+            @NotNull @Size(min = 10, max = 128) String newPassword) {}
 }

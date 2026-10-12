@@ -25,7 +25,7 @@ class AuthCookieWriter {
         this.clock = clock;
     }
 
-    void write(HttpServletResponse response, AuthService.SignedIn signedIn) {
+    void write(HttpServletResponse response, SignedIn signedIn) {
         Instant now = clock.instant();
         add(
                 response,
