@@ -25,7 +25,9 @@ public record AccountEmailRequested(
         /** A code to choose a new password. */
         PASSWORD_RESET_CODE,
         /** Someone tried to register with this email, which already has an account. No code. */
-        ACCOUNT_EXISTS
+        ACCOUNT_EXISTS,
+        /** The account will be erased after the grace period unless they sign in. No code. */
+        DELETION_SCHEDULED
     }
 
     /** Keeps the code out of logs. */

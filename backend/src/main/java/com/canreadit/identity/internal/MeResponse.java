@@ -5,7 +5,12 @@ import java.util.List;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
-/** The signed-in user, as the account menu and account page show them. */
+/**
+ * The signed-in user, as the account menu and account page show them.
+ *
+ * @param hasPassword whether the account can sign in with a password
+ * @param providers linked social sign-ins, lower case ({@code google}, {@code apple})
+ */
 record MeResponse(
         UUID id,
         String handle,
@@ -13,16 +18,6 @@ record MeResponse(
         @Nullable String email,
         boolean emailVerified,
         List<String> roles,
-        Instant createdAt) {
-
-    static MeResponse of(UserAccount user) {
-        return new MeResponse(
-                user.getId(),
-                user.handle(),
-                user.displayName(),
-                user.email(),
-                user.emailVerified(),
-                user.roleNames(),
-                user.createdAt());
-    }
-}
+        boolean hasPassword,
+        List<String> providers,
+        Instant createdAt) {}

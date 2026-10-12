@@ -1,5 +1,7 @@
 package com.canreadit.identity.internal;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -24,4 +26,10 @@ interface UserAccounts extends JpaRepository<UserAccount, UUID> {
             value = "select exists (select 1 from identity.users where handle = cast(:handle as citext))",
             nativeQuery = true)
     boolean handleTaken(@Param("handle") String handle);
+
+    @Query(
+            value =
+                    "select id from identity.users where status = 'PENDING_DELETION' and deletion_requested_at <= :cutoff",
+            nativeQuery = true)
+    List<UUID> findDueForErasure(@Param("cutoff") Instant cutoff);
 }

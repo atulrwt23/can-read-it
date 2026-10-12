@@ -52,6 +52,12 @@ class UserAccount implements Persistable<UUID> {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "deletion_requested_at")
+    private @Nullable Instant deletionRequestedAt;
+
+    @Column(name = "deleted_at")
+    private @Nullable Instant deletedAt;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_roles", schema = "identity", joinColumns = @JoinColumn(name = "user_id"))
     private Set<RoleGrant> roles = new HashSet<>();
@@ -115,6 +121,51 @@ class UserAccount implements Persistable<UUID> {
         emailVerifiedAt = now;
         updatedAt = now;
         return true;
+    }
+
+    void rename(String newHandle, Instant now) {
+        handle = newHandle;
+        updatedAt = now;
+    }
+
+    void changeDisplayName(String name, Instant now) {
+        displayName = name;
+        updatedAt = now;
+    }
+
+    /** Starts the grace period after which the account is erased ({@link #erase}). */
+    void requestDeletion(Instant now) {
+        status = UserStatus.PENDING_DELETION;
+        deletionRequestedAt = now;
+        updatedAt = now;
+    }
+
+    /** Signing in during the grace period keeps the account. */
+    void cancelDeletion(Instant now) {
+        status = UserStatus.ACTIVE;
+        deletionRequestedAt = null;
+        updatedAt = now;
+    }
+
+    @Nullable
+    Instant deletionRequestedAt() {
+        return deletionRequestedAt;
+    }
+
+    /**
+     * Removes everything personal and keeps a tombstone, so other modules' references to the ID stay valid. The
+     * handle becomes a placeholder, which frees the old one.
+     */
+    void erase(String placeholderHandle, Instant now) {
+        status = UserStatus.DELETED;
+        email = null;
+        emailVerifiedAt = null;
+        handle = placeholderHandle;
+        displayName = "Deleted reader";
+        deletionRequestedAt = null;
+        deletedAt = now;
+        updatedAt = now;
+        roles.clear();
     }
 
     String handle() {
