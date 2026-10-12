@@ -30,6 +30,19 @@ spring:
     # History table lives in the first schema (public); module schemas are created on demand.
     schemas: public,identity,catalog,media,discovery,modulith
     create-schemas: true
+  mail:
+    # SMTP (Resend in the beta, Mailpit locally). Empty host: emails are logged, not sent.
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    properties:
+      mail.smtp.auth: ${SMTP_AUTH:true}
+      mail.smtp.starttls.enable: ${SMTP_STARTTLS:true}
+      mail.smtp.starttls.required: ${SMTP_STARTTLS:true}
+      mail.smtp.connectiontimeout: 5000
+      mail.smtp.timeout: 5000
+      mail.smtp.writetimeout: 5000
   modulith:
     events:
       jdbc:
@@ -46,6 +59,10 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    mail:
+      # An email outage must not mark the API down (deploys would roll back); sending failures are logged.
+      enabled: false
 
 springdoc:
   paths-to-match: /api/**
@@ -57,6 +74,8 @@ logging:
 app:
   brand:
     name: CanReadIt
+  mail:
+    from: ${MAIL_FROM:CanReadIt <no-reply@canreadit.local>}
   cookies:
     # Off only for local development over plain HTTP.
     secure: true
@@ -67,6 +86,8 @@ app:
       issuer: canreadit
       # ES256 key, base64 PKCS#8 DER (docs/deploy.md). Empty: a new key at every start (sessions end on restart).
       private-key: ${AUTH_JWT_PRIVATE_KEY:}
+    # How long sign-in events stay in identity.auth_events. TODO(product): confirm the window.
+    event-retention: 180d
     turnstile:
       # Empty: the bot check on sign-up is off.
       secret-key: ${TURNSTILE_SECRET_KEY:}

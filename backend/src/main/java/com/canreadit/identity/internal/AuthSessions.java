@@ -1,6 +1,7 @@
 package com.canreadit.identity.internal;
 
 import jakarta.persistence.LockModeType;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,4 +15,8 @@ interface AuthSessions extends JpaRepository<AuthSession, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from AuthSession s where s.id = :id")
     Optional<AuthSession> findForUpdate(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from AuthSession s where s.userId = :userId and s.revokedAt is null")
+    List<AuthSession> findUnrevokedForUpdate(@Param("userId") UUID userId);
 }

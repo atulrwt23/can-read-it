@@ -18,7 +18,13 @@ class AuthEventLog {
         SIGNED_IN,
         SIGN_IN_FAILED,
         SIGNED_OUT,
-        REFRESH_REUSED
+        REFRESH_REUSED,
+        CODE_FAILED,
+        EMAIL_VERIFIED,
+        PASSWORD_RESET,
+        /** A code proved the email of an account whose password was set by someone unproven; it was removed. */
+        PASSWORD_REMOVED,
+        SESSIONS_REVOKED
     }
 
     private final JdbcClient jdbc;

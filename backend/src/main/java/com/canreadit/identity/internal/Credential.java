@@ -54,6 +54,11 @@ class Credential implements Persistable<UUID> {
         isNew = false;
     }
 
+    void change(String newHash, Instant now) {
+        passwordHash = newHash;
+        passwordUpdatedAt = now;
+    }
+
     String passwordHash() {
         return passwordHash;
     }

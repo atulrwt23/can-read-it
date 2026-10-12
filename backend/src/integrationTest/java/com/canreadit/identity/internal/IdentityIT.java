@@ -2,60 +2,22 @@ package com.canreadit.identity.internal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.canreadit.TestcontainersConfiguration;
 import com.canreadit.shared.AuthCookies;
 import jakarta.servlet.http.Cookie;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.context.annotation.Import;
-import org.springframework.data.redis.core.RedisCallback;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.test.web.servlet.assertj.MockMvcTester;
-import org.springframework.test.web.servlet.assertj.MvcTestResult;
-import tools.jackson.databind.json.JsonMapper;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@Import(TestcontainersConfiguration.class)
-class IdentityIT {
-
-    static final String PASSWORD = "correct horse battery";
-
-    @Autowired
-    MockMvcTester mvc;
-
-    @Autowired
-    JdbcClient jdbc;
-
-    @Autowired
-    StringRedisTemplate redis;
-
-    @Autowired
-    JsonMapper json;
-
-    @BeforeEach
-    void setUp() {
-        jdbc.sql("truncate identity.users, identity.credentials, identity.user_identities, identity.user_roles,"
-                        + " identity.sessions, identity.refresh_tokens, identity.auth_events cascade")
-                .update();
-        redis.execute((RedisCallback<Void>) connection -> {
-            connection.serverCommands().flushAll();
-            return null;
-        });
-    }
+class IdentityIT extends IdentityTestSupport {
 
     @Test
-    void registerSignsInAndMeReturnsTheUser() {
-        var result = register("ana@example.com", "ana_reads");
-        assertThat(result).hasStatus(201);
+    void registersAndSignsInWithThePassword() {
+        assertThat(register("ana@example.com", "ana_reads")).hasStatus(202);
+        assertThat(mail.await("ana@example.com").subject()).isEqualTo("Confirm your email for CanReadIt");
+
+        var result = login("ana@example.com", PASSWORD);
+        assertThat(result).hasStatusOk();
         assertThat(result).bodyJson().extractingPath("$.handle").isEqualTo("ana_reads");
         assertThat(result).bodyJson().extractingPath("$.displayName").isEqualTo("ana_reads");
         assertThat(result).bodyJson().extractingPath("$.emailVerified").isEqualTo(false);
@@ -75,7 +37,7 @@ class IdentityIT {
                 .hasSize(2)
                 .allMatch(c -> c.contains("SameSite=Lax"));
 
-        assertThat(mvc.get().uri("/api/v1/me").cookie(access))
+        assertThat(me(access))
                 .hasStatusOk()
                 .bodyJson()
                 .extractingPath("$.email")
@@ -85,21 +47,22 @@ class IdentityIT {
                         .query(String.class)
                         .single())
                 .startsWith("$argon2id$");
-        assertThat(jdbc.sql("select type from identity.auth_events")
+        assertThat(jdbc.sql("select type from identity.auth_events order by created_at")
                         .query(String.class)
                         .list())
-                .containsExactly("REGISTERED");
+                .containsExactly("REGISTERED", "SIGNED_IN");
     }
 
     @Test
-    void rejectsTakenEmailsAndHandles() {
-        assertThat(register("ana@example.com", "ana_reads")).hasStatus(201);
+    void registeringATakenEmailLooksTheSameButEmailsTheOwner() {
+        assertThat(register("ana@example.com", "ana_reads")).hasStatus(202);
+        mail.await("ana@example.com");
 
-        assertThat(register("Ana@Example.com", "someone_else"))
-                .hasStatus(409)
-                .bodyJson()
-                .extractingPath("$.code")
-                .isEqualTo("email_taken");
+        assertThat(register("Ana@Example.com", "someone_else")).hasStatus(202);
+        assertThat(mail.await("ana@example.com", 2).subject()).isEqualTo("You already have a CanReadIt account");
+        assertThat(count("select count(*) from identity.users")).isEqualTo(1);
+
+        // Handles are public, so a taken one is said plainly.
         assertThat(register("bo@example.com", "ANA_READS"))
                 .hasStatus(409)
                 .bodyJson()
@@ -126,6 +89,7 @@ class IdentityIT {
     @Test
     void wrongPasswordAndUnknownEmailLookTheSame() throws Exception {
         register("ana@example.com", "ana_reads");
+        mail.await("ana@example.com");
 
         var wrongPassword = login("ana@example.com", "not the password");
         var unknownEmail = login("nobody@example.com", PASSWORD);
@@ -164,8 +128,8 @@ class IdentityIT {
 
     @Test
     void refreshRotatesAndReuseEndsTheSession() {
-        var registered = register("ana@example.com", "ana_reads").getResponse();
-        Cookie firstRefresh = registered.getCookie(AuthCookies.REFRESH);
+        register("ana@example.com", "ana_reads");
+        Cookie firstRefresh = login("ana@example.com", PASSWORD).getResponse().getCookie(AuthCookies.REFRESH);
 
         var refreshed = refresh(firstRefresh);
         assertThat(refreshed).hasStatus(204);
@@ -205,11 +169,11 @@ class IdentityIT {
 
     @Test
     void logoutNeedsTheCsrfTokenAndEndsTheSession() {
-        Cookie access = register("ana@example.com", "ana_reads").getResponse().getCookie(AuthCookies.ACCESS);
+        Cookie access = signUp("ana@example.com", "ana_reads");
 
         assertThat(mvc.post().uri("/api/v1/auth/logout").cookie(access)).hasStatus(403);
 
-        Cookie csrf = mvc.get().uri("/api/v1/genres").exchange().getResponse().getCookie("XSRF-TOKEN");
+        Cookie csrf = csrfCookie();
         assertThat(csrf).isNotNull();
         assertThat(csrf.isHttpOnly()).isFalse();
         assertThat(csrf.getAttribute("SameSite")).isEqualTo("Lax");
@@ -232,10 +196,7 @@ class IdentityIT {
 
     @Test
     void acceptsTheAccessTokenAsABearerHeader() {
-        String token = register("ana@example.com", "ana_reads")
-                .getResponse()
-                .getCookie(AuthCookies.ACCESS)
-                .getValue();
+        String token = signUp("ana@example.com", "ana_reads").getValue();
 
         assertThat(mvc.get().uri("/api/v1/me").header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
                 .hasStatusOk();
@@ -266,25 +227,5 @@ class IdentityIT {
         assertThat(jwks).bodyJson().extractingPath("$.keys[0].crv").isEqualTo("P-256");
         assertThat(jwks).bodyJson().extractingPath("$.keys[0].kid").asString().isNotBlank();
         assertThat(jwks).bodyJson().doesNotHavePath("$.keys[0].d");
-    }
-
-    private MvcTestResult register(String email, String handle) {
-        return post("/api/v1/auth/password/register", Map.of("email", email, "password", PASSWORD, "handle", handle));
-    }
-
-    private MvcTestResult login(String email, String password) {
-        return post("/api/v1/auth/password/login", Map.of("email", email, "password", password));
-    }
-
-    private MvcTestResult refresh(Cookie refreshCookie) {
-        return mvc.post().uri("/api/v1/auth/refresh").cookie(refreshCookie).exchange();
-    }
-
-    private MvcTestResult post(String uri, Map<String, String> body) {
-        return mvc.post()
-                .uri(uri)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(body))
-                .exchange();
     }
 }
