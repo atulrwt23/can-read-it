@@ -5,7 +5,8 @@ import { NovelBody, NovelSettingsButton } from "@/components/reader/novel-reader
 import { ReaderBar } from "@/components/reader/reader-bar";
 import { ReadingTracker } from "@/components/reader/reading-tracker";
 import { ViewBeacon } from "@/components/reader/view-beacon";
-import { getChapter, getChapters } from "@/lib/api/server";
+import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
+import { getChapter, getChapters, REMOVED, removedSeries } from "@/lib/api/server";
 import { chapterPath, seriesPath } from "@/lib/routes";
 
 export const revalidate = 300;
@@ -19,16 +20,20 @@ type Props = { params: Promise<{ slug: string; number: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, number } = await params;
-  const chapter = await getChapter(slug, number);
+  const chapter = await getChapter(slug, number).catch(removedSeries);
+  if (chapter === REMOVED) return removedMetadata;
   return { title: `${chapter.series.title} · Chapter ${chapter.number}` };
 }
 
 export default async function ChapterPage({ params }: Props) {
   const { slug, number } = await params;
   const [chapter, list] = await Promise.all([
-    getChapter(slug, number),
-    getChapters(slug, { order: "ASC", limit: 200 }),
+    getChapter(slug, number).catch(removedSeries),
+    getChapters(slug, { order: "ASC", limit: 200 }).catch(removedSeries),
   ]);
+  if (chapter === REMOVED || list === REMOVED) {
+    return <SeriesRemoved />;
+  }
   if (chapter.number !== number) {
     // One URL per chapter: /chapter/10.00 and /chapter/10 are the same page.
     permanentRedirect(chapterPath(slug, chapter.number));

@@ -30,6 +30,17 @@ function api(revalidateSeconds: number, tags: string[]) {
 
 export class ApiUnavailableError extends Error {}
 
+/** The series was taken down (the API answers 410). Pages say so instead of showing a generic "not found". */
+export class SeriesRemovedError extends Error {}
+
+export const REMOVED = Symbol("removed");
+
+/** For `.catch()`: turns a removed series into {@link REMOVED} and rethrows everything else. */
+export function removedSeries(error: unknown): typeof REMOVED {
+  if (error instanceof SeriesRemovedError) return REMOVED;
+  throw error;
+}
+
 /** `next build` runs without a backend in CI; pages render a placeholder and refresh on request. */
 const isBuildPhase = () => process.env.NEXT_PHASE === "phase-production-build";
 
@@ -47,7 +58,10 @@ async function call<T>(
   if (response.status === 301 && onMoved) {
     onMoved(response.headers.get("Location") ?? "");
   }
-  if (response.status === 404 || response.status === 410) {
+  if (response.status === 410) {
+    throw new SeriesRemovedError(`API ${response.url} answered 410`);
+  }
+  if (response.status === 404) {
     notFound();
   }
   if (!response.ok || data === undefined) {
