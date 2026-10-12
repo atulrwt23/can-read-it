@@ -21,6 +21,11 @@ spring:
     url: ${DB_URL}
     username: ${POSTGRES_USER}
     password: ${POSTGRES_PASSWORD}
+  jpa:
+    # Requests never hold a database session while rendering JSON.
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
   flyway:
     # History table lives in the first schema (public); module schemas are created on demand.
     schemas: public,identity,catalog,media,discovery,modulith
@@ -52,6 +57,20 @@ logging:
 app:
   brand:
     name: CanReadIt
+  cookies:
+    # Off only for local development over plain HTTP.
+    secure: true
+  auth:
+    access-token-ttl: 15m
+    refresh-token-ttl: 30d
+    jwt:
+      issuer: canreadit
+      # ES256 key, base64 PKCS#8 DER (docs/deploy.md). Empty: a new key at every start (sessions end on restart).
+      private-key: ${AUTH_JWT_PRIVATE_KEY:}
+    turnstile:
+      # Empty: the bot check on sign-up is off.
+      secret-key: ${TURNSTILE_SECRET_KEY:}
+      verify-url: https://challenges.cloudflare.com/turnstile/v0/siteverify
   rate-limits:
     # Per-client limits on public endpoints, kept in Redis (shared.RateLimiter).
     enabled: ${RATE_LIMITS_ENABLED:true}
