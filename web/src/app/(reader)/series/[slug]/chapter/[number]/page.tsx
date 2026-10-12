@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
+import { MangaPages, MangaSettingsButton } from "@/components/reader/manga-reader";
+import { NextChapterPreloader } from "@/components/reader/next-chapter-preloader";
 import { NovelBody, NovelSettingsButton } from "@/components/reader/novel-reader";
 import { ReaderBar } from "@/components/reader/reader-bar";
-import { ReadingTracker } from "@/components/reader/reading-tracker";
+import { CHAPTER_END_ID, ReadingTracker } from "@/components/reader/reading-tracker";
 import { ViewBeacon } from "@/components/reader/view-beacon";
-import { getChapter, getChapters } from "@/lib/api/server";
+import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
+import { getChapter, getChapters, REMOVED, removedSeries } from "@/lib/api/server";
 import { chapterPath, seriesPath } from "@/lib/routes";
 
 export const revalidate = 300;
@@ -19,16 +22,20 @@ type Props = { params: Promise<{ slug: string; number: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug, number } = await params;
-  const chapter = await getChapter(slug, number);
+  const chapter = await getChapter(slug, number).catch(removedSeries);
+  if (chapter === REMOVED) return removedMetadata;
   return { title: `${chapter.series.title} · Chapter ${chapter.number}` };
 }
 
 export default async function ChapterPage({ params }: Props) {
   const { slug, number } = await params;
   const [chapter, list] = await Promise.all([
-    getChapter(slug, number),
-    getChapters(slug, { order: "ASC", limit: 200 }),
+    getChapter(slug, number).catch(removedSeries),
+    getChapters(slug, { order: "ASC", limit: 200 }).catch(removedSeries),
   ]);
+  if (chapter === REMOVED || list === REMOVED) {
+    return <SeriesRemoved />;
+  }
   if (chapter.number !== number) {
     // One URL per chapter: /chapter/10.00 and /chapter/10 are the same page.
     permanentRedirect(chapterPath(slug, chapter.number));
@@ -41,10 +48,10 @@ export default async function ChapterPage({ params }: Props) {
         slug={slug}
         seriesTitle={chapter.series.title}
         number={chapter.number}
-        chapters={list.items}
+        chapters={list}
         previous={chapter.previous}
         next={chapter.next}
-        actions={isNovel ? <NovelSettingsButton /> : undefined}
+        actions={isNovel ? <NovelSettingsButton /> : <MangaSettingsButton />}
       />
       <main className="pt-14 pb-12 sm:pb-0">
         <h1 className="sr-only">
@@ -74,23 +81,13 @@ export default async function ChapterPage({ params }: Props) {
             )}
           </div>
         ) : (
-          <div className="mx-auto max-w-[800px] bg-surface">
-            {chapter.pages.map((page, index) => (
-              <img
-                key={page.url}
-                src={page.url}
-                width={page.width}
-                height={page.height}
-                alt={`Page ${index + 1}`}
-                loading={index < 2 ? "eager" : "lazy"}
-                fetchPriority={index === 0 ? "high" : undefined}
-                decoding="async"
-                className="block h-auto w-full"
-              />
-            ))}
-          </div>
+          <MangaPages pages={chapter.pages} />
         )}
-        <nav aria-label="End of chapter" className="mx-auto my-10 max-w-md px-4 text-center">
+        <nav
+          id={CHAPTER_END_ID}
+          aria-label="End of chapter"
+          className="mx-auto my-10 max-w-md px-4 text-center"
+        >
           <p className="mb-4 text-sm text-muted">End of chapter {chapter.number}</p>
           <div className="flex justify-center gap-3">
             <Link
@@ -114,8 +111,14 @@ export default async function ChapterPage({ params }: Props) {
           </div>
         </nav>
       </main>
-      <ReadingTracker slug={slug} number={chapter.number} series={chapter.series} />
+      <ReadingTracker
+        slug={slug}
+        number={chapter.number}
+        series={chapter.series}
+        canFinish={!chapter.locked}
+      />
       <ViewBeacon slug={slug} />
+      <NextChapterPreloader slug={slug} next={chapter.next} manga={!isNovel} />
     </>
   );
 }

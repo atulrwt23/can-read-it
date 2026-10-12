@@ -316,6 +316,9 @@ POST   /me/history/import                                   → merges guest his
 - Guests keep history and reading progress in localStorage, with each series' title, type and cover so the home page's "Continue reading" row needs no request. After sign-in, the app calls `POST /api/v1/me/history/import` once, then clears the local copy.
 - Results added with "Load more" come back, at the same scroll position, when the reader returns with the back button (`lib/restore-on-back.ts`, keyed by history entry). A fresh visit starts over.
 - Every route segment has a `loading.tsx` skeleton in flat token colours, shaped like the page.
+- A removed series (the API answers 410) shows "This series was removed" with `noindex` on its series and chapter pages. Next.js can only send 404 for a missing page, so the status stays 200.
+- Reaching a chapter's end panel marks it read in the guest history; the series page ticks read chapters, highlights the last one opened, and offers "Go to chapter".
+- Reader robustness: the chapter picker fetches every chapter in the background (pages of 200), a progress line shows how far through the chapter the reader is, failed page images retry once and then offer "Try again", the next chapter (and its first three manhwa pages) is prefetched past 60% of the current one, and manhwa has a page-width setting saved in localStorage.
 - **Page structure (the design spec; there is no prototype file):**
   - **Header:** sticky header with logo, primary nav (Home, Browse, Library), search box with type-ahead suggestions (cover thumbnail, title, type badge), theme toggle, and sign-in / account menu. It collapses to a menu button and a search icon on mobile.
   - **Home:**

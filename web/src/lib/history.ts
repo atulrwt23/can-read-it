@@ -5,6 +5,8 @@
  */
 const KEY = "canreadit:history:v1";
 const MAX_SERIES = 200;
+/** Read marks kept per series; the oldest marks go first. */
+const MAX_READ = 2000;
 
 /** What "Continue reading" shows for a series, saved while reading so the home page needs no request. */
 export interface SeriesMeta {
@@ -21,6 +23,8 @@ export interface Progress {
   updatedAt: string;
   /** Missing for progress saved before it was recorded; filled in the next time the series is read. */
   series?: SeriesMeta;
+  /** Chapters read to the end, in the order they were finished. */
+  read?: string[];
 }
 
 export interface RecentSeries extends Progress {
@@ -65,7 +69,28 @@ export function saveProgress(
     position: Math.min(1, Math.max(0, position)),
     updatedAt: now.toISOString(),
     series: series ?? history[seriesSlug]?.series,
+    read: history[seriesSlug]?.read,
   };
+  write(history);
+}
+
+/** Chapters of a series read to the end. */
+export function readChapters(seriesSlug: string): Set<string> {
+  const marks = read()[seriesSlug]?.read;
+  return new Set(Array.isArray(marks) ? marks.filter((n) => typeof n === "string") : []);
+}
+
+/** Marks a chapter read to the end. Only series with saved progress keep marks. */
+export function markRead(seriesSlug: string, number: string) {
+  const history = read();
+  const entry = history[seriesSlug];
+  if (!entry) return;
+  const marks = Array.isArray(entry.read) ? entry.read.filter((n) => n !== number) : [];
+  entry.read = [...marks, number].slice(-MAX_READ);
+  write(history);
+}
+
+function write(history: History) {
   // Keep the most recently read series only.
   const kept = Object.entries(history)
     .sort(([, a], [, b]) => b.updatedAt.localeCompare(a.updatedAt))

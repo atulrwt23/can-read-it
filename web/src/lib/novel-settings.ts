@@ -1,4 +1,4 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { createSettingsStore } from "./local-settings";
 
 /** Novel reader preferences, remembered per browser. */
 export interface NovelSettings {
@@ -16,10 +16,6 @@ export const DEFAULT_SETTINGS: NovelSettings = {
   page: "theme",
 };
 
-const KEY = "canreadit:novel-settings:v1";
-const listeners = new Set<() => void>();
-let cached: NovelSettings | undefined;
-
 function sanitize(value: unknown): NovelSettings {
   const v = (value && typeof value === "object" ? value : {}) as Partial<NovelSettings>;
   return {
@@ -32,32 +28,8 @@ function sanitize(value: unknown): NovelSettings {
   };
 }
 
-function snapshot(): NovelSettings {
-  if (!cached) {
-    try {
-      cached = sanitize(JSON.parse(localStorage.getItem(KEY) ?? "{}"));
-    } catch {
-      cached = DEFAULT_SETTINGS;
-    }
-  }
-  return cached;
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
-export function useNovelSettings(): [NovelSettings, (change: Partial<NovelSettings>) => void] {
-  const settings = useSyncExternalStore(subscribe, snapshot, () => DEFAULT_SETTINGS);
-  const update = useCallback((change: Partial<NovelSettings>) => {
-    cached = sanitize({ ...snapshot(), ...change });
-    try {
-      localStorage.setItem(KEY, JSON.stringify(cached));
-    } catch {
-      // Not persisted, but still applied for this visit.
-    }
-    for (const listener of listeners) listener();
-  }, []);
-  return [settings, update];
-}
+export const useNovelSettings = createSettingsStore(
+  "canreadit:novel-settings:v1",
+  DEFAULT_SETTINGS,
+  sanitize,
+);

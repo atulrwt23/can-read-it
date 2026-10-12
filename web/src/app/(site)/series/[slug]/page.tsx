@@ -5,7 +5,8 @@ import { Cover } from "@/components/cover";
 import { ChapterList } from "@/components/series/chapter-list";
 import { ContinueButton } from "@/components/series/continue-button";
 import { ExpandableText } from "@/components/series/expandable-text";
-import { getChapters, getSeries } from "@/lib/api/server";
+import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
+import { getChapters, getSeries, REMOVED, removedSeries } from "@/lib/api/server";
 import { label } from "@/lib/format";
 
 export const revalidate = 60;
@@ -18,7 +19,8 @@ export function generateStaticParams() {
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const series = await getSeries((await params).slug);
+  const series = await getSeries((await params).slug).catch(removedSeries);
+  if (series === REMOVED) return removedMetadata;
   return {
     title: series.title,
     description: series.synopsis.slice(0, 160),
@@ -29,9 +31,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function SeriesPage({ params }: Props) {
   const { slug } = await params;
   const [series, chapters] = await Promise.all([
-    getSeries(slug),
-    getChapters(slug, { limit: 100 }),
+    getSeries(slug).catch(removedSeries),
+    getChapters(slug, { limit: 100 }).catch(removedSeries),
   ]);
+  if (series === REMOVED || chapters === REMOVED) {
+    return <SeriesRemoved />;
+  }
   const statusTone =
     series.status === "COMPLETED" ? "success" : series.status === "HIATUS" ? "warning" : "neutral";
 
