@@ -88,6 +88,16 @@ app:
       private-key: ${AUTH_JWT_PRIVATE_KEY:}
     # How long sign-in events stay in identity.auth_events. TODO(product): confirm the window.
     event-retention: 180d
+    # Social sign-in (OpenID Connect). A provider is off until it has client IDs (comma-separated).
+    oidc:
+      google:
+        issuers: https://accounts.google.com,accounts.google.com
+        jwks-url: https://www.googleapis.com/oauth2/v3/certs
+        audiences: ${GOOGLE_CLIENT_IDS:}
+      apple:
+        issuers: https://appleid.apple.com
+        jwks-url: https://appleid.apple.com/auth/keys
+        audiences: ${APPLE_CLIENT_IDS:}
     turnstile:
       # Empty: the bot check on sign-up is off.
       secret-key: ${TURNSTILE_SECRET_KEY:}

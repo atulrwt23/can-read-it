@@ -23,6 +23,7 @@ class IdentityWebConfig {
                 "/api/v1/auth/password/reset",
                 "/api/v1/auth/email/start",
                 "/api/v1/auth/email/verify",
+                "/api/v1/auth/oauth/*",
                 "/api/v1/auth/refresh");
     }
 

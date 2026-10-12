@@ -24,7 +24,9 @@ class AuthEventLog {
         PASSWORD_RESET,
         /** A code proved the email of an account whose password was set by someone unproven; it was removed. */
         PASSWORD_REMOVED,
-        SESSIONS_REVOKED
+        SESSIONS_REVOKED,
+        IDENTITY_LINKED,
+        IDENTITY_UNLINKED
     }
 
     private final JdbcClient jdbc;

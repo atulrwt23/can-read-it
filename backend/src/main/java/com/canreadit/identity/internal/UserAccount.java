@@ -68,7 +68,7 @@ class UserAccount implements Persistable<UUID> {
     }
 
     /** A new reader whose email may already be proven (they signed up with an emailed code). */
-    UserAccount(UUID id, String email, String handle, Instant now, boolean emailVerified) {
+    UserAccount(UUID id, @Nullable String email, String handle, Instant now, boolean emailVerified) {
         this.id = id;
         this.email = email;
         this.emailVerifiedAt = emailVerified ? now : null;

@@ -50,4 +50,12 @@ final class AuthRequests {
             @NotBlank @Size(max = 254) String email,
             @NotNull @Pattern(regexp = CODE) String code,
             @NotNull @Size(min = 10, max = 128) String newPassword) {}
+
+    /**
+     * @param idToken the ID token from the provider's SDK
+     * @param nonce the nonce from {@code POST /auth/oauth/nonce} that was passed to the SDK
+     */
+    record OAuthToken(
+            @NotBlank @Size(max = 8192) String idToken,
+            @NotBlank @Size(max = 128) String nonce) {}
 }

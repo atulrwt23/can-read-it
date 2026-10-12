@@ -9,7 +9,6 @@ import com.canreadit.identity.internal.VerificationCodes.Purpose;
 import com.canreadit.shared.Ids;
 import com.canreadit.shared.RateLimit;
 import com.canreadit.shared.RateLimiter;
-import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -42,13 +41,12 @@ class EmailCodeService {
     static final RateLimit RESEND_PER_USER = new RateLimit("code-resend-user", 5, Duration.ofHours(1));
 
     private static final List<Purpose> SIGN_IN_CODES = List.of(Purpose.SIGN_IN, Purpose.VERIFY_EMAIL);
-    private static final SecureRandom RANDOM = new SecureRandom();
-    private static final String HANDLE_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789";
 
     private final UserAccounts users;
     private final Credentials credentials;
     private final VerificationCodes codes;
     private final SessionIssuer sessionIssuer;
+    private final AccountGuard guard;
     private final PasswordHasher passwords;
     private final LoginThrottle throttle;
     private final RateLimiter rateLimiter;
@@ -63,6 +61,7 @@ class EmailCodeService {
             Credentials credentials,
             VerificationCodes codes,
             SessionIssuer sessionIssuer,
+            AccountGuard guard,
             PasswordHasher passwords,
             LoginThrottle throttle,
             RateLimiter rateLimiter,
@@ -75,6 +74,7 @@ class EmailCodeService {
         this.credentials = credentials;
         this.codes = codes;
         this.sessionIssuer = sessionIssuer;
+        this.guard = guard;
         this.passwords = passwords;
         this.throttle = throttle;
         this.rateLimiter = rateLimiter;
@@ -134,7 +134,7 @@ class EmailCodeService {
                 // A confirmation code whose account has since been deleted.
                 return Outcome.failed(AuthErrors.invalidCode());
             }
-            String newHandle = handle != null ? handle : generateHandle();
+            String newHandle = handle != null ? handle : guard.newHandle();
             if (handle != null && users.handleTaken(handle)) {
                 // Keep the code usable, so the reader can pick another handle.
                 status.setRollbackOnly();
@@ -151,27 +151,13 @@ class EmailCodeService {
             return Outcome.failed(AuthErrors.accountUnavailable());
         }
         if (!user.emailVerified() && purpose.get() == Purpose.SIGN_IN) {
-            secureUnprovenAccount(user, client, now);
+            guard.secureUnproven(user, client, now);
         }
         if (user.markEmailVerified(now)) {
             events.record(AuthEventLog.Type.EMAIL_VERIFIED, user.getId(), client);
             publisher.publishEvent(new EmailVerified(user.getId(), now));
         }
         return Outcome.ok(signIn(user, client, now));
-    }
-
-    /**
-     * The account was set up by someone who never proved they own the email, and the owner just did. Whatever that
-     * someone holds stops working: the password and every session.
-     */
-    private void secureUnprovenAccount(UserAccount user, ClientInfo client, Instant now) {
-        if (credentials.existsById(user.getId())) {
-            credentials.deleteById(user.getId());
-            events.record(AuthEventLog.Type.PASSWORD_REMOVED, user.getId(), client);
-        }
-        if (sessionIssuer.revokeAll(user.getId(), now) > 0) {
-            events.record(AuthEventLog.Type.SESSIONS_REVOKED, user.getId(), client);
-        }
     }
 
     /** Emails a password reset code if the email has an active account. Always answers the same. */
@@ -260,22 +246,5 @@ class EmailCodeService {
     private SignedIn signIn(UserAccount user, ClientInfo client, Instant now) {
         events.record(AuthEventLog.Type.SIGNED_IN, user.getId(), client);
         return sessionIssuer.open(user, client, now);
-    }
-
-    /**
-     * A random handle for accounts made with a code. It never comes from the email, which would make part of a
-     * private address public. TODO(product): let readers choose it at sign-up (the web form can send one).
-     */
-    private String generateHandle() {
-        for (int i = 0; i < 5; i++) {
-            var handle = new StringBuilder("reader_");
-            for (int j = 0; j < 8; j++) {
-                handle.append(HANDLE_ALPHABET.charAt(RANDOM.nextInt(HANDLE_ALPHABET.length())));
-            }
-            if (!users.handleTaken(handle.toString())) {
-                return handle.toString();
-            }
-        }
-        throw new IllegalStateException("Could not find a free handle");
     }
 }
