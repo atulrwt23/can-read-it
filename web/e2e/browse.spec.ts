@@ -3,7 +3,8 @@ import { expectAccessibleInBothThemes, MANHWA } from "./support";
 
 test("filters are mirrored in the URL and can be cleared", async ({ page }) => {
   await page.goto("/browse");
-  await expect(page.getByText(/^\d+ series$/)).toBeVisible();
+  // While the page streams, React briefly keeps a hidden copy of the results; wait for the one shown.
+  await expect(page.getByText(/^\d+ series$/).filter({ visible: true })).toHaveCount(1);
 
   await page.getByLabel("Type").selectOption("NOVEL");
   await expect(page).toHaveURL(/type=NOVEL/);
