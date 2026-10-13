@@ -74,16 +74,18 @@ export function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 /**
  * Calls the API from the browser (same-origin /api/*, first-party cookies). Writes carry the CSRF header. When the
- * access token has expired (401 outside /auth), it refreshes the session once and retries.
+ * access token has expired (401 outside /auth), it refreshes the session once and retries. A `FormData` body is
+ * sent as a multipart upload; anything else as JSON.
  */
 export async function api<T = void>(method: Method, path: string, body?: unknown): Promise<T> {
   const send = async () => {
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (body !== undefined) headers["Content-Type"] = "application/json";
+    const multipart = body instanceof FormData;
+    if (body !== undefined && !multipart) headers["Content-Type"] = "application/json";
     if (method !== "GET") {
       const token = await csrfToken();
       if (token) headers[CSRF_HEADER] = token;
@@ -92,7 +94,7 @@ export async function api<T = void>(method: Method, path: string, body?: unknown
       method,
       headers,
       credentials: "same-origin",
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
     });
   };
 

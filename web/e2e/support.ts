@@ -1,3 +1,4 @@
+import { crc32, deflateSync } from "node:zlib";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page } from "@playwright/test";
 
@@ -61,4 +62,49 @@ export async function codeFromInbox(email: string, after = 0): Promise<string> {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   throw new Error(`No code arrived for ${email}`);
+}
+
+/** How many emails Mailpit holds for this address, so a later {@link codeFromInbox} can skip them. */
+export async function inboxCount(email: string): Promise<number> {
+  const search = await fetch(
+    `${MAILPIT}/api/v1/search?query=${encodeURIComponent(`to:"${email}"`)}`,
+  );
+  const found = (await search.json()) as { messages: unknown[] };
+  return found.messages.length;
+}
+
+/** Signs in with an emailed code (creating the account the first time), which also confirms the email. */
+export async function signInWithCode(page: Page, email: string) {
+  const before = await inboxCount(email);
+  await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill(email);
+  await page.getByRole("button", { name: "Email me a code" }).click();
+  await page.getByLabel("6-digit code").fill(await codeFromInbox(email, before));
+  await page.getByRole("button", { name: /^(Sign in|Create account)$/ }).click();
+  await expect(page.getByRole("button", { name: /^Account menu for / })).toBeVisible();
+}
+
+/** A flat-colour PNG, built here so the tests need no image files. */
+export function solidPng(width: number, height: number, rgb: [number, number, number]): Buffer {
+  const row = Buffer.alloc(1 + width * 3);
+  for (let x = 0; x < width; x++) row.set(rgb, 1 + x * 3);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  const chunk = (type: string, data: Buffer) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", header),
+    chunk("IDAT", deflateSync(raw)),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 }

@@ -104,3 +104,61 @@ export function Divider({ label }: { label: string }) {
     </div>
   );
 }
+
+/** A labelled select, styled like TextField. */
+export function SelectField({
+  id,
+  label,
+  hint,
+  children,
+  ...select
+}: { id: string; label: string; hint?: ReactNode } & ComponentProps<"select">) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-semibold">
+        {label}
+      </label>
+      <select
+        id={id}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        className="h-10 rounded border border-line bg-surface px-2 text-base focus:border-primary-text focus:outline-none"
+        {...select}
+      >
+        {children}
+      </select>
+      {hint ? (
+        <p id={`${id}-hint`} className="text-sm text-muted">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/** A labelled multi-line field, styled like TextField. */
+export function TextAreaField({
+  id,
+  label,
+  hint,
+  className = "",
+  ...textarea
+}: { id: string; label: string; hint?: ReactNode } & ComponentProps<"textarea">) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={id} className="text-sm font-semibold">
+        {label}
+      </label>
+      <textarea
+        id={id}
+        aria-describedby={hint ? `${id}-hint` : undefined}
+        className={`rounded border border-line bg-surface px-3 py-2 text-base placeholder:text-muted focus:border-primary-text focus:outline-none ${className}`}
+        {...textarea}
+      />
+      {hint ? (
+        <p id={`${id}-hint`} className="text-sm text-muted">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
