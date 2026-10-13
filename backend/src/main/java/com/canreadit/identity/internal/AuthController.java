@@ -10,13 +10,14 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Sign-up and sign-in (password or emailed code), password reset, token refresh and sign-out. Tokens travel only in cookies; the body is the user.
+ * Sign-up and sign-in (password, emailed code, Google or Apple), password reset, token refresh and sign-out. Tokens travel only in cookies; the body is the user.
  * TODO(identity): mobile clients (phase 4) get the tokens in the body and send the refresh token in a header.
  */
 @RestController
@@ -25,11 +26,13 @@ class AuthController {
 
     private final AuthService auth;
     private final EmailCodeService codes;
+    private final SocialSignInService social;
     private final AuthCookieWriter cookies;
 
-    AuthController(AuthService auth, EmailCodeService codes, AuthCookieWriter cookies) {
+    AuthController(AuthService auth, EmailCodeService codes, SocialSignInService social, AuthCookieWriter cookies) {
         this.auth = auth;
         this.codes = codes;
+        this.social = social;
         this.cookies = cookies;
     }
 
@@ -82,6 +85,34 @@ class AuthController {
             HttpServletRequest request,
             HttpServletResponse response) {
         var signedIn = codes.verify(body.email(), body.code(), body.handle(), ClientInfo.from(request));
+        return signedIn(response, signedIn);
+    }
+
+    record NonceResponse(String nonce) {}
+
+    /** A one-time nonce to pass to the Google or Apple SDK before signing in with it. */
+    @PostMapping("/oauth/nonce")
+    ResponseEntity<NonceResponse> oauthNonce(HttpServletRequest request) {
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(new NonceResponse(social.nonce(ClientInfo.from(request))));
+    }
+
+    /**
+     * Signs in with an ID token from Google or Apple, creating the account on first use. {@code 404} when the provider
+     * is not configured.
+     */
+    @PostMapping("/oauth/{provider}")
+    ResponseEntity<MeResponse> oauthSignIn(
+            @PathVariable String provider,
+            @Valid @RequestBody AuthRequests.OAuthToken body,
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        var signedIn = social.signIn(
+                IdentityProvider.fromPath(provider).orElseThrow(OidcIdTokenVerifier::providerUnavailable),
+                body.idToken(),
+                body.nonce(),
+                ClientInfo.from(request));
         return signedIn(response, signedIn);
     }
 

@@ -40,6 +40,7 @@ The platform only hosts content we have the rights to publish: original work, li
 | View counting | A view counts once per visitor, series and UTC day. The visitor is a daily-salted HMAC of IP and user agent (nothing personal stored), crawlers are ignored, and one IP counts at most 30 visitors per series and day ([docs/modules/discovery.md](docs/modules/discovery.md)) |
 | Rate limits | `shared.RateLimiter`: Bucket4j token buckets in Redis, keyed by a hash of the client key, answering 429 with `Retry-After`, and allowing requests when Redis is down. Pages rendered by Next.js call the API from the web container, so per-visitor limits on them belong at the edge |
 | Email | Sent over SMTP only. **Resend** for the beta, Mailpit locally ([ADR 0007](docs/decisions/0007-email-over-smtp.md)). Account emails (codes, notices) are a plain async event (`identity.AccountEmailRequested`), not a persisted module event, so codes never reach the event table; a failed send is logged and dropped ([docs/modules/notifications.md](docs/modules/notifications.md)) |
+| Social sign-in | The server issues a one-time nonce (`POST /auth/oauth/nonce`, Redis, 10 minutes) that the ID token must carry, so captured tokens can't be replayed. A provider is off until its client IDs are configured; the API never needs a client secret ([docs/modules/identity.md](docs/modules/identity.md)) |
 | Registration | `POST /auth/password/register` always answers `202`: a new account gets a confirmation code (and can already sign in with its password), an existing email gets a notice. A sign-in code used on an account whose email was never verified removes its password and sessions (the section 7 linking rule applied to codes) ([docs/modules/identity.md](docs/modules/identity.md)) |
 | Money (later) | Append-only double-entry coin ledger, idempotent payment webhooks. Never a mutable balance column |
 | Time | `Instant` in UTC in Java, `timestamptz` in Postgres |
@@ -415,7 +416,7 @@ All of it costs $0. Every piece can be swapped by configuration.
 
 **Phase 1 (MVP: a readable product)**
 1. **Skeleton + catalog read slice** (done)
-2. **Identity** (all sign-in methods, tokens, sessions, account page) ← current. 2a sessions and password sign-in, and 2b email codes, confirmation and password reset are done; next are 2c Google and Apple, 2d account management, 2e web pages and `proxy.ts` refresh
+2. **Identity** (all sign-in methods, tokens, sessions, account page) ← current. 2a sessions and password sign-in, 2b email codes, confirmation and password reset, and 2c Google and Apple sign-in are done (2c is off until client IDs are configured); next are 2d account management, 2e web pages and `proxy.ts` refresh
 3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done)
 4. Reading: library, follows, progress sync, guest history import
 5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`) (SEO basics and the beta deployment are done; analytics events remain)

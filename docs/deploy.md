@@ -236,6 +236,7 @@ All production settings go into **one Vault secret** whose content is the whole 
 - **`REVALIDATE_SECRET`** (optional): generate one with `openssl rand -hex 32`. With it, a newly published chapter shows on cached pages within seconds instead of about a minute.
 - **`AUTH_JWT_PRIVATE_KEY`** (optional): the key that signs sign-in tokens; see [Sign-in settings](#sign-in-settings).
 - **`TURNSTILE_SECRET_KEY`** (optional): turns on the bot check for sign-up; see [Sign-in settings](#sign-in-settings).
+- **`GOOGLE_CLIENT_IDS` and `APPLE_CLIENT_IDS`** (optional): turn on social sign-in; see [Google and Apple sign-in](#google-and-apple-sign-in).
 - **`SMTP_*` and `MAIL_FROM`** (optional): email for sign-in codes and password resets; see [Email settings](#email-settings).
 - **`S3_*`, `MEDIA_PUBLIC_BASE_URL` and `BACKUP_*`:** the values from step 1. The `BACKUP_*` values can stay empty until you create the backups bucket; only the nightly backup fails until then.
 - **Leave as they are:** `IMAGE_REGISTRY`, `COMPOSE_PROFILES=quick` and `SPRING_PROFILES_ACTIVE=prod,demo`.
@@ -341,6 +342,15 @@ Both are optional, so the beta deploys without them. Add them to the Vault secre
   ```
   Replacing it later has the same effect as a restart: browsers renew once. The public half is served at `/.well-known/jwks.json`.
 - **`TURNSTILE_SECRET_KEY`** turns on the bot check for sign-up. Create a widget in Cloudflare → **Turnstile** for your site's hostname; the secret key goes here, and the site key goes to the web app once its sign-up page exists. Without a secret the check is off. With one, a failed or unreachable check refuses the sign-up.
+
+### Google and Apple sign-in
+
+Each provider is off until its client IDs are set. The API only checks ID tokens (signature, issuer, audience, expiry, one-time nonce), so it needs just the public client IDs, never a client secret. Both providers want a fixed web address, so set them up once you have a domain.
+
+- **Google** (free): Google Cloud console → **APIs & Services → Credentials → Create credentials → OAuth client ID**, type *Web application*. Under *Authorized JavaScript origins* add `https://<your-domain>`. Put the client ID (`….apps.googleusercontent.com`) in `GOOGLE_CLIENT_IDS`. Mobile apps later add their own client IDs to the same list, comma-separated.
+- **Apple** (needs the Apple Developer Program, $99 a year): Certificates, Identifiers & Profiles → **Identifiers → Services IDs**, create one with *Sign in with Apple* turned on, add your domain and the return URL the web app uses. Put the Services ID (for example `com.example.canreadit.web`) in `APPLE_CLIENT_IDS`; the iOS app later adds its bundle ID.
+
+Then add them to the Vault secret (**Create Secret Version**) and `deploy.sh --force`. The web app's sign-in page shows a provider's button only when the provider is configured.
 
 ### Email settings
 
