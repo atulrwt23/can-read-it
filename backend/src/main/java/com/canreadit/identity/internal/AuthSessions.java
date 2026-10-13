@@ -19,4 +19,7 @@ interface AuthSessions extends JpaRepository<AuthSession, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select s from AuthSession s where s.userId = :userId and s.revokedAt is null")
     List<AuthSession> findUnrevokedForUpdate(@Param("userId") UUID userId);
+
+    @Query("select s from AuthSession s where s.userId = :userId and s.revokedAt is null")
+    List<AuthSession> findUnrevokedByUser(@Param("userId") UUID userId);
 }

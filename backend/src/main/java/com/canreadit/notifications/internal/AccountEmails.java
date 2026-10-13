@@ -80,6 +80,16 @@ class AccountEmails {
 
                     If it wasn't you, you can ignore this email. Nothing has changed.
                     """.formatted(brand));
+            case DELETION_SCHEDULED ->
+                new EmailMessage(request.to(), "Your " + brand + " account will be deleted", """
+                    You asked to delete your %1$s account. It will be erased in %2$d days, \
+                    with everything in it.
+
+                    Changed your mind? Sign in before then and the deletion is cancelled.
+
+                    If you didn't ask for this, sign in now and change your password.
+                    """.formatted(
+                                brand, request.codeValidFor().toDays()));
         };
     }
 

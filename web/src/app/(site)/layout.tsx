@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SessionProvider } from "@/components/auth/session";
 import { SiteHeader } from "@/components/site-header";
 import { BRAND_NAME } from "@/lib/brand";
 
@@ -12,8 +13,10 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
-      <SiteHeader />
-      <div id="main">{children}</div>
+      <SessionProvider>
+        <SiteHeader />
+        <div id="main">{children}</div>
+      </SessionProvider>
       <footer className="mt-16 border-t border-line py-8 text-center text-sm text-muted">
         {BRAND_NAME} · placeholder content for development
       </footer>

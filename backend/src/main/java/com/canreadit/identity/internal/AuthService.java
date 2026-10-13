@@ -44,6 +44,7 @@ class AuthService {
     private final AuthSessions sessions;
     private final RefreshTokens refreshTokens;
     private final SessionIssuer sessionIssuer;
+    private final AccountGuard guard;
     private final VerificationCodes codes;
     private final PasswordHasher passwords;
     private final AccessTokens accessTokens;
@@ -62,6 +63,7 @@ class AuthService {
             AuthSessions sessions,
             RefreshTokens refreshTokens,
             SessionIssuer sessionIssuer,
+            AccountGuard guard,
             VerificationCodes codes,
             PasswordHasher passwords,
             AccessTokens accessTokens,
@@ -78,6 +80,7 @@ class AuthService {
         this.sessions = sessions;
         this.refreshTokens = refreshTokens;
         this.sessionIssuer = sessionIssuer;
+        this.guard = guard;
         this.codes = codes;
         this.passwords = passwords;
         this.accessTokens = accessTokens;
@@ -153,16 +156,20 @@ class AuthService {
                     client);
             throw AuthErrors.invalidCredentials();
         }
-        UserAccount account = user.orElseThrow();
-        if (account.status() != UserStatus.ACTIVE) {
-            // The password was right, so saying why reveals nothing to a guesser.
-            throw AuthErrors.accountUnavailable();
-        }
+        UUID userId = user.orElseThrow().getId();
+        SignedIn signedIn = Objects.requireNonNull(tx.execute(status -> {
+                    Instant now = clock.instant();
+                    UserAccount account = users.findById(userId).orElseThrow();
+                    if (!guard.admit(account, client, now)) {
+                        // The password was right, so saying why reveals nothing to a guesser.
+                        return Outcome.<SignedIn>failed(AuthErrors.accountUnavailable());
+                    }
+                    events.record(AuthEventLog.Type.SIGNED_IN, account.getId(), client);
+                    return Outcome.ok(sessionIssuer.open(account, client, now));
+                }))
+                .get();
         throttle.succeeded(cleanEmail);
-        return Objects.requireNonNull(tx.execute(status -> {
-            events.record(AuthEventLog.Type.SIGNED_IN, account.getId(), client);
-            return sessionIssuer.open(account, client, clock.instant());
-        }));
+        return signedIn;
     }
 
     /**
@@ -224,9 +231,5 @@ class AuthService {
                     sessionIssuer.revoke(session, clock.instant());
                     events.record(AuthEventLog.Type.SIGNED_OUT, session.userId(), client);
                 }));
-    }
-
-    Optional<UserAccount> user(UUID id) {
-        return users.findById(id);
     }
 }

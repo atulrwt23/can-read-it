@@ -347,8 +347,8 @@ Both are optional, so the beta deploys without them. Add them to the Vault secre
 
 Each provider is off until its client IDs are set. The API only checks ID tokens (signature, issuer, audience, expiry, one-time nonce), so it needs just the public client IDs, never a client secret. Both providers want a fixed web address, so set them up once you have a domain.
 
-- **Google** (free): Google Cloud console → **APIs & Services → Credentials → Create credentials → OAuth client ID**, type *Web application*. Under *Authorized JavaScript origins* add `https://<your-domain>`. Put the client ID (`….apps.googleusercontent.com`) in `GOOGLE_CLIENT_IDS`. Mobile apps later add their own client IDs to the same list, comma-separated.
-- **Apple** (needs the Apple Developer Program, $99 a year): Certificates, Identifiers & Profiles → **Identifiers → Services IDs**, create one with *Sign in with Apple* turned on, add your domain and the return URL the web app uses. Put the Services ID (for example `com.example.canreadit.web`) in `APPLE_CLIENT_IDS`; the iOS app later adds its bundle ID.
+- **Google** (free): Google Cloud console → **APIs & Services → Credentials → Create credentials → OAuth client ID**, type *Web application*. Under *Authorized JavaScript origins* add `https://<your-domain>`. Put the client ID (`….apps.googleusercontent.com`) in `GOOGLE_CLIENT_IDS`. Mobile apps later add their own client IDs to the same list, comma-separated, after the web one: the sign-in page uses the first.
+- **Apple** (needs the Apple Developer Program, $99 a year): Certificates, Identifiers & Profiles → **Identifiers → Services IDs**, create one with *Sign in with Apple* turned on, add your domain and the return URL `https://<your-domain>/login`. Put the Services ID (for example `com.example.canreadit.web`) in `APPLE_CLIENT_IDS`; the iOS app later adds its bundle ID.
 
 Then add them to the Vault secret (**Create Secret Version**) and `deploy.sh --force`. The web app's sign-in page shows a provider's button only when the provider is configured.
 

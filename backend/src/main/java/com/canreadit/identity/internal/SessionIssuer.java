@@ -3,6 +3,7 @@ package com.canreadit.identity.internal;
 import com.canreadit.shared.Ids;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /** Opens, renews and ends sessions. Callers hold the transaction. */
@@ -51,8 +52,16 @@ class SessionIssuer {
 
     /** Ends every session of the user. Returns how many were still open. */
     int revokeAll(UUID userId, Instant now) {
+        return revokeAllExcept(userId, null, now);
+    }
+
+    /** Ends every session of the user but one (the caller's own). Returns how many were still open. */
+    int revokeAllExcept(UUID userId, @Nullable UUID keep, Instant now) {
         int open = 0;
         for (AuthSession session : sessions.findUnrevokedForUpdate(userId)) {
+            if (session.getId().equals(keep)) {
+                continue;
+            }
             if (session.isActive(now)) {
                 open++;
             }

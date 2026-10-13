@@ -81,6 +81,24 @@ class AuthSession implements Persistable<UUID> {
         return userId;
     }
 
+    Instant createdAt() {
+        return createdAt;
+    }
+
+    Instant lastUsedAt() {
+        return lastUsedAt;
+    }
+
+    @Nullable
+    String userAgent() {
+        return userAgent;
+    }
+
+    @Nullable
+    InetAddress ip() {
+        return ip;
+    }
+
     boolean isActive(Instant now) {
         return revokedAt == null && expiresAt.isAfter(now);
     }

@@ -1,6 +1,6 @@
 # identity
 
-**Purpose.** Accounts, sign-in methods, sessions and roles (CLAUDE.md section 7). Built so far: password sign-up and sign-in, sessions, token refresh and sign-out (2a); sign-in with an emailed code, email confirmation and password reset (2b); Google and Apple sign-in and linking (2c). Account management (2d) and the web pages (2e) follow.
+**Purpose.** Accounts, sign-in methods, sessions and roles (CLAUDE.md section 7). Built so far: password sign-up and sign-in, sessions, token refresh and sign-out (2a); sign-in with an emailed code, email confirmation and password reset (2b); Google and Apple sign-in and linking (2c); account management (2d). The web pages (2e) follow.
 
 ## Endpoints
 | Route | Notes |
@@ -18,7 +18,13 @@
 | `DELETE /api/v1/me/identities/{provider}` | signed in, CSRF → `204`. `409 last_sign_in_method` unless a password, another provider or a verified email (code sign-in) remains |
 | `POST /api/v1/auth/refresh` | the refresh cookie → `204` with new cookies. `401 invalid_refresh` clears the cookies; `409 refresh_superseded` means another tab just refreshed (retry with the new cookie) |
 | `POST /api/v1/auth/logout` | ends the session of the access cookie. Needs the CSRF header; always `204` |
-| `GET /api/v1/me` | the signed-in user (`id`, `handle`, `displayName`, `email`, `emailVerified`, `roles`, `createdAt`). `401` without a valid token |
+| `GET /api/v1/me` | the signed-in user (`id`, `handle`, `displayName`, `email`, `emailVerified`, `roles`, `hasPassword`, `providers`, `createdAt`). `401` without a valid token. Every sign-in answers with the same shape |
+| `PATCH /api/v1/me` | CSRF, `{ handle?, displayName? }` → the user. `409 handle_taken`; display names are 1–60 characters without control characters |
+| `POST /api/v1/me/password` | CSRF, `{ currentPassword?, newPassword }` → `204`, and every other session ends. Needs the current password if there is one (`403 wrong_password`, 10 checks per 15 minutes), otherwise a sign-in within 10 minutes (`403 reauthentication_required`) |
+| `GET /api/v1/me/sessions` | active sessions, newest use first: `id`, `current`, `userAgent`, `ip`, `createdAt`, `lastUsedAt` |
+| `DELETE /api/v1/me/sessions/{id}` | CSRF → `204`; signs that device out (this one: also clears its cookies). Another user's session is `404` |
+| `POST /api/v1/me/sessions/revoke-all` | CSRF → `204`; signs out every device except this one |
+| `DELETE /api/v1/me` | CSRF, `{ currentPassword? }` → `202 { eraseAfter }`. Proves identity like the password change, ends every session, emails a notice; see "Deleting an account" |
 | `GET /.well-known/jwks.json` | the public key that verifies access tokens. Cached 5 minutes |
 
 Every response here is `Cache-Control: no-store`. Handles are 3–30 letters, digits or underscores, unique ignoring case; the display name starts as the handle (`TODO(product)`). Passwords are 10–128 characters, with no composition rules.
@@ -40,6 +46,14 @@ Every response here is `Cache-Control: no-store`. Handles are 3–30 letters, di
 - One identity per provider per user. Unlinking needs another way in: a password, another provider, or a verified email (which can always get a sign-in code).
 - Setup (client IDs, a domain): [deploy.md](../deploy.md#google-and-apple-sign-in).
 
+## Deleting an account
+- `DELETE /me` sets `PENDING_DELETION` with `deletion_requested_at`, ends every session, publishes `UserDeletionRequested(userId, requestedAt, eraseAfter)` and emails a notice.
+- **Signing in again within 30 days cancels it** (`AccountGuard.admit`, any sign-in method; logged as `DELETION_CANCELLED`). Codes and resets still reach a pending account for that reason. `TODO(product)`: confirm the 30 days and the cancel-by-sign-in rule.
+- `AccountEraser` (daily, 04:41 UTC, `app.auth.erase-cron`) erases accounts past the grace period: it keeps a tombstone row (`DELETED`, `deleted_at`, a `deleted_…` handle, display name "Deleted reader", no email or roles) so other modules' user IDs stay valid, deletes the password, linked providers, sessions, codes and sign-in events, and publishes `UserDeleted` for other modules to remove their data. The email and handle become free again.
+
+## Proving identity for sensitive changes
+Changing the password and deleting the account need the current password when the account has one, so a stolen session can't lock the owner out. Accounts without a password (code or social sign-in) need a sign-in within the last 10 minutes instead (`AccountService.RECENT_SIGN_IN`). This is the seam staff re-authentication will use.
+
 ## Tokens and cookies
 - **Access token:** an ES256 JWT, 15 minutes (`app.auth.access-token-ttl`). Claims `iss`, `sub` (user), `sid` (session), `roles`, `ev` (email verified), `iat`, `exp`, and `kid` in the header (the key's RFC 7638 thumbprint). The key is `AUTH_JWT_PRIVATE_KEY` (base64 PKCS#8 P-256); without one the API makes a new key at startup and logs a warning ([deploy.md](../deploy.md#sign-in-settings)).
 - **Refresh token:** 32 random bytes, stored as a SHA-256 hash, 30 days (`app.auth.refresh-token-ttl`), sliding: every refresh spends it, issues a new one and extends the session. A spent token presented again within 20 seconds is a race between tabs (`409`, the session survives); later, it is a stolen copy, so the whole session is revoked and `REFRESH_REUSED` is logged.
@@ -59,18 +73,26 @@ Every response here is `Cache-Control: no-store`. Handles are 3–30 letters, di
 - **Rate limits** (`shared.RateLimiter`, per IP unless noted): register 10 an hour, and 5 an hour per email; login 30 per 15 minutes, and 10 per 15 minutes per email; `email/start` and `forgot` 20 an hour, and 5 an hour per email (shared); `email/verify` and `reset` 30 per 15 minutes; confirmation resends 5 an hour per user; refresh 120 a minute. Per-email limits also cap how many emails a stranger can trigger to someone's inbox, but they let a stranger use up someone's code requests for an hour (`TODO(product)`: revisit if abused).
 - **Same answer either way:** register, `email/start` and `forgot` answer `202` whatever the email; emails go out on another thread, so timing doesn't tell either. Register hashes the password on both paths.
 - **Bot check:** `BotChallengeVerifier` on register, `email/start` and `forgot`. `TurnstileVerifier` checks the `botToken` with Cloudflare when `TURNSTILE_SECRET_KEY` is set, and refuses the sign-up if Cloudflare can't be reached; without the secret (locally) the check is off.
-- **Audit:** `auth_events` records `REGISTERED`, `IDENTITY_LINKED`, `IDENTITY_UNLINKED`, `SIGNED_IN`, `SIGN_IN_FAILED` and `CODE_FAILED` (with the user when the email exists), `SIGNED_OUT`, `REFRESH_REUSED`, `EMAIL_VERIFIED`, `PASSWORD_RESET`, `PASSWORD_REMOVED` and `SESSIONS_REVOKED`, with IP and user agent. Failures are committed even though the request fails.
+- **Audit:** `auth_events` records `PASSWORD_CHANGED`, `PROFILE_CHANGED`, `DELETION_REQUESTED`, `DELETION_CANCELLED`, `REGISTERED`, `IDENTITY_LINKED`, `IDENTITY_UNLINKED`, `SIGNED_IN`, `SIGN_IN_FAILED` and `CODE_FAILED` (with the user when the email exists), `SIGNED_OUT`, `REFRESH_REUSED`, `EMAIL_VERIFIED`, `PASSWORD_RESET`, `PASSWORD_REMOVED` and `SESSIONS_REVOKED`, with IP and user agent. Failures are committed even though the request fails.
 - **Retention:** `IdentityCleanup` runs daily at 04:23 UTC (`app.auth.cleanup-cron`): it deletes codes a day after they expire, expired refresh tokens, and `auth_events` older than `app.auth.event-retention` (180 days).
 
 ## Events
-`UserRegistered(userId, handle, registeredAt)`, `EmailVerified(userId, verifiedAt)`, `PasswordChanged(userId, changedAt)`, and `AccountEmailRequested` for `notifications` (see above). The rest from CLAUDE.md section 7 arrive with the flows that cause them.
+`UserRegistered(userId, handle, registeredAt)`, `EmailVerified(userId, verifiedAt)`, `PasswordChanged(userId, changedAt)`, `UserDeletionRequested(userId, requestedAt, eraseAfter)`, `UserDeleted(userId, deletedAt)`, and `AccountEmailRequested` for `notifications` (see above). The rest from CLAUDE.md section 7 arrive with the flows that cause them.
 
 ## Data (schema `identity`)
 All tables come from the step 1 migration. Written so far: `users`, `credentials`, `user_roles` (every new user is a `READER`), `sessions`, `refresh_tokens`, `verification_codes` and `auth_events`. The `identity` module is the first to write through JPA; its entities implement `Persistable`, so app-generated UUIDv7 IDs insert without a select first.
 
+## Web (step 2e)
+- Pages: `/login` (provider buttons, then an emailed code or a password), `/signup` (same choices; every email path ends with a code), `/login/reset`, and `/account` (profile, email confirmation, password, sign-in methods, devices, deletion). All `noindex`; the account page renders in the browser.
+- `web/src/lib/auth/client.ts` calls the API: CSRF header on writes, one shared refresh and a retry on `401`. `SessionProvider` holds the signed-in user for the header's account menu.
+- Google and Apple buttons appear only when `GOOGLE_CLIENT_IDS` / `APPLE_CLIENT_IDS` are set for the web container (the first ID is the web client). Each attempt gets a fresh nonce.
+- The CSRF cookie is never set on public reads (`SecurityConfig.SpaCsrfHandler`), so cacheable responses carry no `Set-Cookie`; the browser gets it from `/me` or a sign-in response.
+- e2e (`web/e2e/auth.spec.ts`): the pages with axe in both themes; password sign-up with the emailed confirmation, profile change, sign-out and back in; code sign-up and sign-in; the wrong-password message; deletion; renewal of an expired access token.
+
 ## Open questions
 - `TODO(product)`: how long to keep `auth_events` (default 180 days).
-- `TODO(product)`: accounts made with a code get a random handle unless the sign-up form sends one; renaming comes with account management (2d).
+- `TODO(product)`: accounts made with a code or a provider get a random handle unless the sign-up form sends one; readers can rename it (`PATCH /me`). Handle changes are not rate limited beyond 20 profile changes an hour, and old handles are not reserved.
 - `TODO(product)`: unconfirmed password accounts are kept forever, holding their email and handle. A cleanup after some weeks may be wanted.
+- `TODO(product)`: registering answers the same for new and taken emails, but registering and then signing in with the chosen password still tells the two apart (it works only for a new account). Rate limits make this slow; closing it fully would mean new password accounts can't sign in until they confirm their email.
 - Email codes need a domain in production: the email provider only sends from a verified domain ([deploy.md](../deploy.md#email-settings)).
 - Staff roles will need TOTP and recent re-authentication (`Role`, seam only).

@@ -90,7 +90,7 @@ class EmailCodeService {
         String cleanEmail = beginPublicRequest(email, botToken, client);
         Optional<AccountEmailRequested> message = Objects.requireNonNull(tx.execute(status -> {
             Optional<UserAccount> user = users.findByEmail(cleanEmail);
-            if (user.isPresent() && user.get().status() != UserStatus.ACTIVE) {
+            if (user.isPresent() && !AccountGuard.mayReturn(user.get())) {
                 return Optional.<AccountEmailRequested>empty();
             }
             String code = codes.issue(cleanEmail, Purpose.SIGN_IN, clock.instant());
@@ -147,7 +147,7 @@ class EmailCodeService {
             return Outcome.ok(signIn(user, client, now));
         }
         UserAccount user = existing.get();
-        if (user.status() != UserStatus.ACTIVE) {
+        if (!guard.admit(user, client, now)) {
             return Outcome.failed(AuthErrors.accountUnavailable());
         }
         if (!user.emailVerified() && purpose.get() == Purpose.SIGN_IN) {
@@ -165,7 +165,7 @@ class EmailCodeService {
         String cleanEmail = beginPublicRequest(email, botToken, client);
         Optional<AccountEmailRequested> message =
                 Objects.requireNonNull(tx.execute(status -> users.findByEmail(cleanEmail)
-                        .filter(user -> user.status() == UserStatus.ACTIVE)
+                        .filter(AccountGuard::mayReturn)
                         .map(user -> new AccountEmailRequested(
                                 cleanEmail,
                                 Kind.PASSWORD_RESET_CODE,
@@ -195,7 +195,7 @@ class EmailCodeService {
                         return Outcome.<SignedIn>failed(AuthErrors.invalidCode());
                     }
                     UserAccount user = existing.get();
-                    if (user.status() != UserStatus.ACTIVE) {
+                    if (!guard.admit(user, client, now)) {
                         return Outcome.<SignedIn>failed(AuthErrors.accountUnavailable());
                     }
                     credentials
