@@ -184,6 +184,16 @@ class UserAccount implements Persistable<UUID> {
         return createdAt;
     }
 
+    /** Adds a role granted by the system. Returns whether the user lacked it. */
+    boolean grant(Role role, Instant now) {
+        if (roles.stream().anyMatch(grant -> grant.role() == role)) {
+            return false;
+        }
+        roles.add(new RoleGrant(role, null, now));
+        updatedAt = now;
+        return true;
+    }
+
     /** Role names, highest privileges last, for tokens and responses. */
     List<String> roleNames() {
         return roles.stream().map(RoleGrant::role).sorted().map(Role::name).toList();

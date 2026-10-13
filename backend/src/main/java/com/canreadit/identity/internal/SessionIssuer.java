@@ -15,22 +15,29 @@ class SessionIssuer {
     private final AccessTokens accessTokens;
     private final SessionDenylist denylist;
     private final AuthProperties properties;
+    private final StaffRoles staffRoles;
 
     SessionIssuer(
             AuthSessions sessions,
             RefreshTokens refreshTokens,
             AccessTokens accessTokens,
             SessionDenylist denylist,
-            AuthProperties properties) {
+            AuthProperties properties,
+            StaffRoles staffRoles) {
         this.sessions = sessions;
         this.refreshTokens = refreshTokens;
         this.accessTokens = accessTokens;
         this.denylist = denylist;
         this.properties = properties;
+        this.staffRoles = staffRoles;
     }
 
-    /** A new session with a one-time refresh token and a short access token. */
+    /**
+     * A new session with a one-time refresh token and a short access token. Every sign-in comes through here, so
+     * staff roles are applied first and the token carries them.
+     */
     SignedIn open(UserAccount user, ClientInfo client, Instant now) {
+        staffRoles.apply(user, client, now);
         Instant expiresAt = now.plus(properties.refreshTokenTtl());
         var session = sessions.save(new AuthSession(Ids.newId(), user.getId(), client, now, expiresAt));
         return issue(user, session.getId(), now, expiresAt);

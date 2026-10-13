@@ -6,6 +6,8 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.proc.JWSVerificationKeySelector;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jwt.proc.DefaultJWTProcessor;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.context.annotation.Bean;
@@ -22,7 +24,8 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 
 /**
  * How the API checks the access tokens it issued: our public key, ES256 only, our issuer, not expired, and the
- * session not revoked. Roles become {@code ROLE_*} authorities.
+ * session not revoked. Roles become {@code ROLE_*} authorities, and each role's permissions ({@link Permission})
+ * authorities of their own.
  */
 @Configuration(proxyBeanMethods = false)
 class JwtConfig {
@@ -52,11 +55,19 @@ class JwtConfig {
         var converter = new JwtAuthenticationConverter();
         converter.setJwtGrantedAuthoritiesConverter(jwt -> {
             List<String> roles = jwt.getClaimAsStringList("roles");
-            return roles == null
-                    ? List.<GrantedAuthority>of()
-                    : roles.stream()
-                            .<GrantedAuthority>map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                            .toList();
+            if (roles == null) {
+                return List.<GrantedAuthority>of();
+            }
+            var authorities = new LinkedHashSet<GrantedAuthority>();
+            for (String name : roles) {
+                authorities.add(new SimpleGrantedAuthority("ROLE_" + name));
+                // Unknown role names (from an older or newer release) grant nothing.
+                Arrays.stream(Role.values())
+                        .filter(role -> role.name().equals(name))
+                        .flatMap(role -> Permission.of(role).stream())
+                        .forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission.name())));
+            }
+            return List.copyOf(authorities);
         });
         return converter;
     }

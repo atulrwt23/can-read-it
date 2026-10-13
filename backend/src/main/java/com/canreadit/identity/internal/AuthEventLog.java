@@ -30,7 +30,8 @@ class AuthEventLog {
         PASSWORD_CHANGED,
         PROFILE_CHANGED,
         DELETION_REQUESTED,
-        DELETION_CANCELLED
+        DELETION_CANCELLED,
+        ROLE_GRANTED
     }
 
     private final JdbcClient jdbc;

@@ -30,6 +30,11 @@ spring:
     # History table lives in the first schema (public); module schemas are created on demand.
     schemas: public,identity,catalog,media,discovery,modulith
     create-schemas: true
+  servlet:
+    multipart:
+      # One image per upload request (app.media.max-upload-size is the real check).
+      max-file-size: 20MB
+      max-request-size: 21MB
   mail:
     # SMTP (Resend in the beta, Mailpit locally). Empty host: emails are logged, not sent.
     host: ${SMTP_HOST:}
@@ -86,6 +91,8 @@ app:
       issuer: canreadit
       # ES256 key, base64 PKCS#8 DER (docs/deploy.md). Empty: a new key at every start (sessions end on restart).
       private-key: ${AUTH_JWT_PRIVATE_KEY:}
+    # Verified emails that become ADMIN at sign-in (comma-separated). Empty: nobody does.
+    admin-emails: ${ADMIN_EMAILS:}
     # How long sign-in events stay in identity.auth_events. TODO(product): confirm the window.
     event-retention: 180d
     # Social sign-in (OpenID Connect). A provider is off until it has client IDs (comma-separated).

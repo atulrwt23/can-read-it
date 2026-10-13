@@ -68,6 +68,7 @@ services:
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
       GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
       APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-}
+      ADMIN_EMAILS: ${ADMIN_EMAILS:-}
       # Email over SMTP (optional; see .env.example).
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
@@ -82,6 +83,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+      # The WebP codec's native library is unpacked and loaded from here; /tmp is noexec.
+      - /var/lib/canreadit-native:exec,mode=1777,size=16m
     cap_drop: [ALL]
     # The JVM sizes its heap to 75% of this (MaxRAMPercentage in the image).
     mem_limit: 2g

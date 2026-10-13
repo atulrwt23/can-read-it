@@ -13,6 +13,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
  * @param accessTokenTtl lifetime of the JWT access token
  * @param refreshTokenTtl sliding lifetime of a session: every refresh extends it by this much
  * @param eventRetention how long {@code auth_events} rows are kept
+ * @param adminEmails verified emails that become ADMIN at sign-in ({@link StaffRoles})
  * @param oidc the social sign-in providers (CLAUDE.md section 7): configuration entries, not code
  */
 @ConfigurationProperties("app.auth")
@@ -22,7 +23,8 @@ record AuthProperties(
         Duration eventRetention,
         Jwt jwt,
         Turnstile turnstile,
-        Map<IdentityProvider, OidcProvider> oidc) {
+        Map<IdentityProvider, OidcProvider> oidc,
+        @Nullable List<String> adminEmails) {
 
     /**
      * @param issuer the {@code iss} claim of our tokens

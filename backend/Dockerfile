@@ -18,8 +18,11 @@ COPY --from=build /app/dependencies/ ./
 COPY --from=build /app/spring-boot-loader/ ./
 COPY --from=build /app/snapshot-dependencies/ ./
 COPY --from=build /app/application/ ./
+# The WebP codec (libwebp over JNI) unpacks its native library here. /tmp is mounted noexec in
+# production, so this directory is a separate exec-allowed tmpfs there (infra/prod/compose.yml).
+RUN mkdir -p /var/lib/canreadit-native && chown 10001:10001 /var/lib/canreadit-native
 USER 10001:10001
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError" \
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dcom.luciad.imageio.webp.tmpdir=/var/lib/canreadit-native" \
     SPRING_PROFILES_ACTIVE=prod
 EXPOSE 8080
 # No curl in the JRE image: ask the readiness probe over bash's /dev/tcp.

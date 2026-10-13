@@ -2,3 +2,6 @@
 app:
   scheduling:
     enabled: false
+  auth:
+    # Signing in with this verified email grants ADMIN (the staff tests use it).
+    admin-emails: admin@example.com
