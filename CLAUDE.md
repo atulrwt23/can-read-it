@@ -327,10 +327,10 @@ POST   /me/history/import                                   → merges guest his
 - Reaching a chapter's end panel marks it read in the guest history; the series page ticks read chapters, highlights the last one opened, and offers "Go to chapter".
 - Reader robustness: the chapter picker fetches every chapter in the background (pages of 200), a progress line shows how far through the chapter the reader is, failed page images retry once and then offer "Try again", the next chapter (and its first three manhwa pages) is prefetched past 60% of the current one, and manhwa has a page-width setting saved in localStorage.
 - **Page structure (the design spec; there is no prototype file):**
-  - **Header:** sticky header with logo, primary nav (Home, Browse, Library), search box with type-ahead suggestions (cover thumbnail, title, type badge), theme toggle, and sign-in / account menu. It collapses to a menu button and a search icon on mobile.
+  - **Header:** sticky header with logo, primary nav (Home, Browse, Library; the current section is highlighted with `aria-current="page"`), search box with type-ahead suggestions (cover thumbnail, title, type badge), theme toggle, and sign-in / account menu. It collapses to a menu button and a search icon on mobile.
   - **Home:**
     - hero carousel of featured series (banner, title, genres, synopsis excerpt, "Read now")
-    - "Latest updates" grid of cards (cover, title, the latest 2–3 chapters with relative times, and a "new" badge on chapters under 24h old)
+    - "Latest updates" grid of cards (cover, title, the latest 2–3 chapters with relative times, and a "new" badge on chapters under 24h old): the first page of browse by update, 12 cards, with cursor-based "Load more"
     - ranked "Popular" side panel with Today / Week / All-time tabs and numbered entries
     - on mobile the panel stacks below the grid
   - **Browse:** a filter bar (type, status, genres, sort), a results grid with cursor-based "Load more", and filters mirrored in the URL query.

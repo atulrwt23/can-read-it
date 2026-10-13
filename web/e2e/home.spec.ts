@@ -7,9 +7,12 @@ test("home shows featured, latest updates and rankings", async ({ page }) => {
   const carousel = page.getByRole("region", { name: "Featured series" });
   await expect(carousel).toBeVisible();
   await expect(page.getByRole("heading", { name: "Latest updates" })).toBeVisible();
+  const latest = page.locator('section[aria-labelledby="latest-title"] article');
+  await expect(latest.first()).toBeVisible();
+  // The header marks the current section.
   await expect(
-    page.locator('section[aria-labelledby="latest-title"] article').first(),
-  ).toBeVisible();
+    page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Home" }),
+  ).toHaveAttribute("aria-current", "page");
 
   // The carousel moves with its buttons.
   const slide = carousel.locator('[aria-roledescription="slide"]');
@@ -24,6 +27,17 @@ test("home shows featured, latest updates and rankings", async ({ page }) => {
   await expect(page.getByRole("tabpanel").locator("li").first()).toBeVisible();
 
   await expectAccessibleInBothThemes(page);
+});
+
+test("latest updates load more after the first page", async ({ page }) => {
+  await page.goto("/");
+  const latest = page.locator('section[aria-labelledby="latest-title"] article');
+  await expect(latest).toHaveCount(12);
+  await page
+    .locator('section[aria-labelledby="latest-title"]')
+    .getByRole("button", { name: "Load more" })
+    .click();
+  await expect.poll(() => latest.count()).toBeGreaterThan(12);
 });
 
 test("view all links lead to browse", async ({ page }) => {

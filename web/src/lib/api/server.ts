@@ -92,6 +92,20 @@ export async function getHome(): Promise<HomeResponse | null> {
   }
 }
 
+/** The home page's "Latest updates": the first page of browse by update, so "Load more" can follow its cursor. */
+export const LATEST_UPDATES: BrowseParams = { sort: "UPDATED", limit: 12 };
+
+export async function getLatestUpdates(): Promise<SeriesPage | null> {
+  try {
+    return await browseSeries(LATEST_UPDATES);
+  } catch (error) {
+    if (error instanceof ApiUnavailableError && isBuildPhase()) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export async function getGenres(): Promise<Genre[]> {
   return call(() => api(3600, [cacheTags.genres]).GET("/api/v1/genres"));
 }
