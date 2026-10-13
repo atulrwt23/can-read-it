@@ -26,9 +26,31 @@
 | `GET /api/v1/series/{slug}/chapters` | `lang`, `order` (`DESC`, `ASC`), `cursor`, `limit` ≤ 200 |
 | `GET /api/v1/series/{slug}/chapters/{number}` | pages (URL + size) or novel Markdown, `previous`/`next`, and the series' slug, title, type and cover; early access is returned `locked` without content |
 
+## Staff editing (step 3)
+`CatalogAdminController` and `CatalogAdminService`, permission `CATALOG_MANAGE` on every route. Responses are `no-store`; writes need the CSRF header like every cookie write. The write side uses JPA entities (`SeriesEntity`, `ChapterEntity` with its pages as an ordered element collection, `NovelBodyEntity`) with `@DynamicUpdate`, so an edit never overwrites columns the publish job or the popularity roll-up maintain.
+
+| Route | Notes |
+|---|---|
+| `GET /api/v1/admin/series` | every series, drafts included, newest edit first; `q` (title, alt titles, slug), `offset`, `limit` ≤ 100; answers `items` and `total` |
+| `POST /api/v1/admin/series` | creates a series and its original edition (`en`). The slug comes from the title when left out (`title`, `title-2`, …; `series` for titles without Latin letters); a taken one is `409 slug_taken` |
+| `GET`, `PUT /api/v1/admin/series/{id}` | the whole form: title, slug, type (fixed: `series_type_fixed`), status, visibility, age rating, synopsis, alt titles, genre slugs (`unknown_genre`), cover asset (must be a ready cover: `invalid_cover`), first year, cadence. A new slug keeps the old one as a 301 |
+| `POST /api/v1/admin/series/{id}/chapters` | a draft chapter `{number, title}`; a duplicate number is `409 chapter_number_taken` |
+| `GET`, `PUT /api/v1/admin/chapters/{id}` | renames; the number can change only until the chapter is live (`409 chapter_live`), because URLs carry it |
+| `PUT /api/v1/admin/chapters/{id}/pages` | manhwa only (`not_manhwa`): uploaded page assets in reading order, up to 300 (`invalid_page` names the first bad one); widths and heights come from `media` |
+| `PUT /api/v1/admin/chapters/{id}/body` | novels only (`not_novel`): Markdown up to 200,000 characters; the word count is stored |
+| `POST /api/v1/admin/chapters/{id}/schedule` | `{publishAt?}`; none, or a time that has passed, releases now and runs the publish job straight away. Needs pages or text (`chapter_empty`) and refuses chapters already live (`chapter_live`) |
+| `POST /api/v1/admin/chapters/{id}/unschedule` | back to draft while not yet live |
+| `DELETE /api/v1/admin/chapters/{id}` | drafts and not-yet-live scheduled chapters only |
+
+Chapter writes lock the row (`select … for update`). The publish job skips locked rows, so it can't release a chapter while staff change its schedule, and staff can't pull back a chapter the job has just released.
+
 ## Local seed
-`LocalCatalogSeeder` (profile `local`, empty catalog only) creates 16 invented series with generated PNG covers and pages, stored through `media.MediaUploads`.
+`LocalCatalogSeeder` (profile `local`, empty catalog only) creates 16 invented series with generated covers and pages, stored through `media.MediaUploads` (so they go through the WebP pipeline; about 90 s on a laptop).
 
 ## Open questions
+- `TODO(product)`: creators will manage their own series through `series_members` (phase 3); today only `ADMIN` can edit.
+- `TODO(product)`: edits to series or chapters readers can already see reach cached pages at the next time-based revalidation (about a minute); only releases revalidate on demand.
+- `TODO(product)`: every new series gets an `en` original edition until launch languages are decided.
+- `TODO(product)`: taking down a released chapter (moderation, rights) is a separate flow; staff can only delete chapters readers never saw.
 - `TODO(product)`: which language edition to show by default when there are several (today: the original).
 - `TODO(phase 3)`: unlocking early-access chapters (entitlements from monetization).
