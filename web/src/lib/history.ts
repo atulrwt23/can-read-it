@@ -1,7 +1,7 @@
 /**
- * Guest reading history in localStorage (CLAUDE.md section 8). After sign-in (step 4) it is sent
- * once to POST /api/v1/me/history/import and cleared. Storage may be unavailable: every access
- * is guarded, and the app works without it.
+ * Guest reading history in localStorage (CLAUDE.md section 8). After sign-in it is sent once to
+ * POST /api/v1/me/history/import and cleared (lib/reading/store.ts); signed-in reading lives in the
+ * account. Storage may be unavailable: every access is guarded, and the app works without it.
  */
 const KEY = "canreadit:history:v1";
 const MAX_SERIES = 200;
@@ -88,6 +88,20 @@ export function markRead(seriesSlug: string, number: string) {
   const marks = Array.isArray(entry.read) ? entry.read.filter((n) => n !== number) : [];
   entry.read = [...marks, number].slice(-MAX_READ);
   write(history);
+}
+
+/** Every series in the guest history, for the import after sign-in. */
+export function allHistory(): RecentSeries[] {
+  return recentSeries(MAX_SERIES);
+}
+
+/** Forgets the guest history (it now lives in the account). */
+export function clearHistory() {
+  try {
+    localStorage.removeItem(KEY);
+  } catch {
+    // Storage unavailable: nothing was kept.
+  }
 }
 
 function write(history: History) {

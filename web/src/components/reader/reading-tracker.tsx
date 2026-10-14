@@ -1,15 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { getProgress, markRead, type SeriesMeta, saveProgress } from "@/lib/history";
+import type { SeriesMeta } from "@/lib/history";
+import { chapterProgress } from "@/lib/reading/store";
 
 /** The element at the end of a chapter; reaching it marks the chapter read. */
 export const CHAPTER_END_ID = "chapter-end";
 
 /**
- * Remembers where a guest is in this chapter and returns them there next time. Page images carry
- * their sizes, so the document height is right before they load and restoring is exact. Reaching
- * the end of the chapter marks it read, unless `canFinish` is false (a locked chapter).
+ * Remembers where the reader is in this chapter (in the account when signed in, in the browser for guests) and
+ * returns them there next time. Page images carry their sizes, so the document height is right before they load
+ * and restoring is exact. Reaching the end of the chapter marks it read, unless `canFinish` is false (a locked
+ * chapter).
  */
 export function ReadingTracker({
   slug,
@@ -29,50 +31,64 @@ export function ReadingTracker({
   const coverHeight = series.cover?.height;
 
   useEffect(() => {
-    const meta: SeriesMeta = {
+    const progress = chapterProgress(slug, number, {
       title,
       type,
       cover:
         coverUrl && coverWidth && coverHeight
           ? { url: coverUrl, width: coverWidth, height: coverHeight }
           : null,
-    };
+    });
     const maxScroll = () => Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    const saved = getProgress(slug);
-    if (saved?.number === number && saved.position > 0.02 && saved.position < 0.98) {
-      window.scrollTo({ top: saved.position * maxScroll() });
-    } else {
-      saveProgress(slug, number, 0, new Date(), meta);
-    }
+    const position = () => window.scrollY / maxScroll();
+    let active = true;
+    let finished = false;
+
+    void progress.restore().then((saved) => {
+      if (!active) return;
+      if (saved !== undefined && saved > 0.02 && saved < 0.98) {
+        // Only jump if the reader hasn't started scrolling already.
+        if (window.scrollY < 50) window.scrollTo({ top: saved * maxScroll() });
+      } else {
+        // Opening a chapter is progress too: it becomes the one to continue.
+        progress.update(position());
+      }
+    });
 
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const save = () => saveProgress(slug, number, window.scrollY / maxScroll(), new Date(), meta);
     function onScroll() {
       if (!timer) {
         timer = setTimeout(() => {
           timer = undefined;
-          save();
+          if (!finished) progress.update(position());
         }, 1000);
       }
     }
+    function onPageHide() {
+      if (!finished) progress.update(position());
+      progress.leave(true);
+    }
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("pagehide", save);
+    window.addEventListener("pagehide", onPageHide);
 
     const end = document.getElementById(CHAPTER_END_ID);
-    const finished = new IntersectionObserver((entries) => {
+    const observer = new IntersectionObserver((entries) => {
       if (canFinish && entries.some((entry) => entry.isIntersecting)) {
-        markRead(slug, number);
-        finished.disconnect();
+        finished = true;
+        progress.finish();
+        observer.disconnect();
       }
     });
-    if (end) finished.observe(end);
+    if (end) observer.observe(end);
 
     return () => {
-      finished.disconnect();
+      active = false;
+      observer.disconnect();
       clearTimeout(timer);
-      save();
+      if (!finished) progress.update(position());
+      progress.leave();
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("pagehide", save);
+      window.removeEventListener("pagehide", onPageHide);
     };
   }, [slug, number, canFinish, title, type, coverUrl, coverWidth, coverHeight]);
 

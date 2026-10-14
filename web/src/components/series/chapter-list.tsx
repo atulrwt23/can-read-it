@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { Badge } from "@/components/badge";
 import { browserApi } from "@/lib/api/browser";
 import type { ChapterPage, ChapterSummary } from "@/lib/api/types";
 import { calendarDate, isNew } from "@/lib/format";
-import { getProgress, readChapters } from "@/lib/history";
+import { useSeriesReading } from "@/lib/reading/use-series-reading";
 import { chapterPath } from "@/lib/routes";
 
 /** What a reader may type to jump to a chapter: "12", "12.5", "012.50". */
 export const CHAPTER_NUMBER = /^\d{1,6}(\.\d{1,2})?$/;
 
 type Order = "DESC" | "ASC";
+
+const NONE: ReadonlySet<string> = new Set();
 
 interface ChapterListProps {
   slug: string;
@@ -24,14 +26,10 @@ interface ChapterListProps {
 
 export function ChapterList({ slug, initial, now }: ChapterListProps) {
   const [order, setOrder] = useState<Order>("DESC");
-  // Guest history, read after hydration: chapters read to the end, and the last one opened.
-  const [read, setRead] = useState<Set<string>>(new Set());
-  const [lastRead, setLastRead] = useState<string | undefined>();
-
-  useEffect(() => {
-    setRead(readChapters(slug));
-    setLastRead(getProgress(slug)?.number);
-  }, [slug]);
+  // The reader's history (account or browser), known after hydration: chapters read to the end, the last opened.
+  const [reading] = useSeriesReading(slug);
+  const read = reading?.read ?? NONE;
+  const lastRead = reading?.progress?.number;
   const [items, setItems] = useState<ChapterSummary[]>(initial.items);
   const [cursor, setCursor] = useState(initial.nextCursor);
   const [loading, setLoading] = useState(false);

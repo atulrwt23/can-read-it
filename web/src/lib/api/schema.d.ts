@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/api/v1/me/progress/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["progress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/library/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["follow"];
+        post?: never;
+        delete: operations["unfollow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/series/{id}": {
         parameters: {
             query?: never;
@@ -127,6 +159,22 @@ export interface paths {
         put?: never;
         post: operations["linkIdentity"];
         delete: operations["unlinkIdentity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/history/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importHistory"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -484,6 +532,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/series/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["series_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["library"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/home": {
         parameters: {
             query?: never;
@@ -536,6 +632,12 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ProgressUpdate: {
+            number: string;
+            /** Format: double */
+            position: number;
+            finished: boolean;
+        };
         SeriesForm: {
             title: string;
             slug?: string | null;
@@ -653,6 +755,24 @@ export interface components {
         OAuthToken: {
             idToken: string;
             nonce: string;
+        };
+        HistoryImport: {
+            series: components["schemas"]["ImportedSeries"][];
+        };
+        ImportedSeries: {
+            slug: string;
+            number: string;
+            /** Format: double */
+            position: number;
+            /** Format: date-time */
+            updatedAt: string;
+            read?: string[] | null;
+        };
+        ImportResult: {
+            /** Format: int32 */
+            imported: number;
+            /** Format: int32 */
+            skipped: number;
         };
         ResetPassword: {
             email: string;
@@ -829,6 +949,36 @@ export interface components {
             /** Format: date-time */
             lastUsedAt: string;
         };
+        ReadingProgress: {
+            number: string;
+            /** Format: double */
+            position: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SeriesReading: {
+            following: boolean;
+            progress?: components["schemas"]["ReadingProgress"] | null;
+            readChapters: string[];
+        };
+        LibraryItem: {
+            series: components["schemas"]["SeriesCard"];
+            /** Format: date-time */
+            addedAt: string;
+            progress?: components["schemas"]["ReadingProgress"] | null;
+        };
+        LibraryPage: {
+            items: components["schemas"]["LibraryItem"][];
+            nextCursor?: string | null;
+        };
+        HistoryItem: {
+            series: components["schemas"]["SeriesCard"];
+            progress: components["schemas"]["ReadingProgress"];
+        };
+        HistoryPage: {
+            items: components["schemas"]["HistoryItem"][];
+            nextCursor?: string | null;
+        };
         HomeResponse: {
             featured: components["schemas"]["SeriesCard"][];
             latestUpdates: components["schemas"]["SeriesCard"][];
@@ -886,6 +1036,70 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    follow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unfollow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     series: {
         parameters: {
             query?: never;
@@ -1155,6 +1369,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    importHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HistoryImport"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ImportResult"];
+                };
             };
         };
     };
@@ -1733,6 +1971,74 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SessionView"][];
+                };
+            };
+        };
+    };
+    series_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SeriesReading"];
+                };
+            };
+        };
+    };
+    library: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LibraryPage"];
+                };
+            };
+        };
+    };
+    history: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["HistoryPage"];
                 };
             };
         };

@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { ApiError, auth, hasSignedInHint, type Me, setSignedInHint } from "@/lib/auth/client";
+import { importGuestHistory } from "@/lib/reading/store";
 
 type SessionState =
   | { status: "loading" }
@@ -48,6 +49,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setState({ status: "signed-out" });
     }
   }, [reload]);
+
+  // What a guest read before signing in moves into the account (CLAUDE.md section 8).
+  useEffect(() => {
+    if (state.status === "signed-in") void importGuestHistory();
+  }, [state.status]);
 
   const signedIn = useCallback((me: Me) => {
     setSignedInHint(true);

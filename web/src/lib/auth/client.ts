@@ -79,9 +79,14 @@ type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 /**
  * Calls the API from the browser (same-origin /api/*, first-party cookies). Writes carry the CSRF header. When the
  * access token has expired (401 outside /auth), it refreshes the session once and retries. A `FormData` body is
- * sent as a multipart upload; anything else as JSON.
+ * sent as a multipart upload; anything else as JSON. `keepalive` lets a request finish after the page closes.
  */
-export async function api<T = void>(method: Method, path: string, body?: unknown): Promise<T> {
+export async function api<T = void>(
+  method: Method,
+  path: string,
+  body?: unknown,
+  options: { keepalive?: boolean } = {},
+): Promise<T> {
   const send = async () => {
     const headers: Record<string, string> = { Accept: "application/json" };
     const multipart = body instanceof FormData;
@@ -95,6 +100,7 @@ export async function api<T = void>(method: Method, path: string, body?: unknown
       headers,
       credentials: "same-origin",
       body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
+      keepalive: options.keepalive,
     });
   };
 

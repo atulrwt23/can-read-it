@@ -3,25 +3,26 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Cover } from "@/components/cover";
-import { type RecentSeries, recentSeries } from "@/lib/history";
+import { type RecentEntry, recentlyRead } from "@/lib/reading/store";
 import { chapterPath } from "@/lib/routes";
 
 const SHOWN = 6;
 
 /**
- * The guest's recently read series, from browser storage. The home page is the same for everyone, so this renders
- * nothing on the server and fills in after hydration.
+ * The reader's recently read series, from the account when signed in, else from browser storage. The home page is
+ * the same for everyone, so this renders nothing on the server and fills in after hydration.
  */
 export function ContinueReading() {
-  const [entries, setEntries] = useState<RecentSeries[]>([]);
+  const [entries, setEntries] = useState<RecentEntry[]>([]);
 
   useEffect(() => {
-    // Progress saved before series details were recorded has no title to show; it reappears once read again.
-    setEntries(
-      recentSeries(SHOWN * 2)
-        .filter((entry) => entry.series)
-        .slice(0, SHOWN),
-    );
+    let current = true;
+    recentlyRead(SHOWN)
+      .then((recent) => current && setEntries(recent))
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
   }, []);
 
   if (entries.length === 0) return null;
@@ -38,9 +39,9 @@ export function ContinueReading() {
               href={chapterPath(entry.slug, entry.number)}
               className="group flex flex-col gap-1.5 rounded-md bg-surface p-2 shadow-card"
             >
-              <Cover image={entry.series?.cover} title={entry.series?.title ?? entry.slug} />
+              <Cover image={entry.series.cover} title={entry.series.title} />
               <span className="line-clamp-1 text-sm font-bold group-hover:text-primary-text">
-                {entry.series?.title}
+                {entry.series.title}
               </span>
               <span className="text-xs text-muted">Ch. {entry.number}</span>
               <span
