@@ -28,7 +28,7 @@ spring:
       ddl-auto: none
   flyway:
     # History table lives in the first schema (public); module schemas are created on demand.
-    schemas: public,identity,catalog,media,discovery,modulith
+    schemas: public,identity,catalog,media,discovery,reading,modulith
     create-schemas: true
   servlet:
     multipart:

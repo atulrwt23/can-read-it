@@ -182,6 +182,17 @@ class SeriesRepository {
                 .list();
     }
 
+    List<SeriesRow> readableByIds(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("select " + SeriesRow.COLUMNS
+                        + " from catalog.series s where s.visibility in ('PUBLISHED', 'UNLISTED') and s.id in (:ids)")
+                .param("ids", List.copyOf(ids))
+                .query(SeriesRow::map)
+                .list();
+    }
+
     List<UUID> publishedIds() {
         return jdbc.sql("select id from catalog.series where visibility = 'PUBLISHED' order by id")
                 .query(UUID.class)
