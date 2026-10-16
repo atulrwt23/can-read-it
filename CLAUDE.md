@@ -46,6 +46,7 @@ The platform only hosts content we have the rights to publish: original work, li
 | Email | Sent over SMTP only. **Resend** for the beta, Mailpit locally ([ADR 0007](docs/decisions/0007-email-over-smtp.md)). Account emails (codes, notices) are a plain async event (`identity.AccountEmailRequested`), not a persisted module event, so codes never reach the event table; a failed send is logged and dropped ([docs/modules/notifications.md](docs/modules/notifications.md)) |
 | New-chapter emails | Followers of a series get its new chapters (original edition only) in one digest email, at most every 3 hours (`TODO(product)`), and only at a confirmed address. Each email carries an RFC 8058 one-click `List-Unsubscribe`; `/account` has the switch. Links need `SITE_URL`, so nothing is sent without it ([docs/modules/notifications.md](docs/modules/notifications.md)) |
 | Ratings | One score from 1 to 5 per reader and series, owned by `engagement`, with per-series totals kept in the same transaction. Rating needs a confirmed email (`TODO(product)`: section 7 names only comments and purchases). The average is public and CDN-cached for a minute; the reader's own stars load after hydration ([docs/modules/engagement.md](docs/modules/engagement.md)) |
+| Comments | Flat, plain-text comments under chapters (1–2000 characters), newest first, owned by `engagement`. Public to read (cached 15 s) and written by readers with a confirmed email; authors delete their own, and comments show only the author's handle and display name ([docs/modules/engagement.md](docs/modules/engagement.md)) |
 | Account deletion | `DELETE /me` starts a 30-day grace period; signing in again cancels it. Afterwards a daily job erases the account to a tombstone row (ID kept for other modules) and publishes `UserDeleted`. Password changes and deletion need the current password, or a sign-in within 10 minutes for accounts without one ([docs/modules/identity.md](docs/modules/identity.md)) |
 | Social sign-in | The server issues a one-time nonce (`POST /auth/oauth/nonce`, Redis, 10 minutes) that the ID token must carry, so captured tokens can't be replayed. A provider is off until its client IDs are configured; the API never needs a client secret ([docs/modules/identity.md](docs/modules/identity.md)) |
 | Registration | `POST /auth/password/register` always answers `202`: a new account gets a confirmation code (and can already sign in with its password), an existing email gets a notice. A sign-in code used on an account whose email was never verified removes its password and sessions (the section 7 linking rule applied to codes) ([docs/modules/identity.md](docs/modules/identity.md)) |
@@ -125,7 +126,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 │     ├─ catalog/                ← series, editions, chapters, genres, series members
 │     ├─ media/                  ← uploads, image processing, storage, public URLs
 │     ├─ reading/                ← library, follows, progress, history
-│     ├─ engagement/             ← ratings, comments, reports (ratings only for now)
+│     ├─ engagement/             ← ratings, comments, reports (reports to come)
 │     ├─ discovery/              ← home feed, search, rankings, trending, view counters
 │     ├─ monetization/           ← coins, entitlements, subscriptions (stub for now)
 │     ├─ notifications/          ← email, push, in-app (email only for now)
@@ -429,7 +430,7 @@ All of it costs $0. Every piece can be swapped by configuration.
 4. **Reading: library, follows, progress sync, guest history import** (done: `reading` schema and `/api/v1/me/{library,series,progress,history}`, Follow button, `/library`, account-or-browser reading store, import after sign-in)
 5. **SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`)** (done: SEO basics, the beta deployment, and anonymous analytics events with `/admin/analytics`)
 
-Phase 1 is complete. Phase 2 is under way: new-chapter emails for followed series and series ratings are done; comments, reports and the moderation queue remain.
+Phase 1 is complete. Phase 2 is under way: new-chapter emails for followed series, series ratings and chapter comments are done; reports and the moderation queue remain.
 
 Phase 2: notifications, ratings, comments, reports and moderation queue.
 Phase 3: Creator Studio, coins and early access, subscriptions, ads.
