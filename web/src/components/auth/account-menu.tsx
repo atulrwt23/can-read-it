@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { isStaff } from "@/lib/admin/client";
+import { canModerate, isStaff } from "@/lib/admin/client";
 import { useSession } from "./session";
 
 function signInHref(pathname: string): string {
@@ -70,6 +70,11 @@ export function AccountMenuItems() {
       {isStaff(session.me.roles) ? (
         <Link href="/admin" className={item}>
           Catalog
+        </Link>
+      ) : null}
+      {canModerate(session.me.roles) ? (
+        <Link href="/admin/moderation" className={item}>
+          Moderation
         </Link>
       ) : null}
       <Link href="/account" className={item}>

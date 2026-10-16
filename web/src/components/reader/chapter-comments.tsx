@@ -3,7 +3,12 @@
 import Link from "next/link";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { SessionProvider, useSession } from "@/components/auth/session";
-import { type CommentView, comments as commentsApi, errorMessage } from "@/lib/auth/client";
+import {
+  type CommentView,
+  comments as commentsApi,
+  errorMessage,
+  type ReportReason,
+} from "@/lib/auth/client";
 import { relativeTime } from "@/lib/format";
 import { chapterPath } from "@/lib/routes";
 
@@ -178,6 +183,8 @@ function Comments({ slug, number }: { slug: string; number: string }) {
                 >
                   Delete<span className="sr-only"> your comment</span>
                 </button>
+              ) : myHandle ? (
+                <ReportComment comment={comment} />
               ) : null}
             </li>
           ))}
@@ -258,6 +265,118 @@ function CommentForm({
           {error}
         </p>
       ) : null}
+    </form>
+  );
+}
+
+const REASONS: { value: ReportReason; label: string }[] = [
+  { value: "SPAM", label: "Spam or advertising" },
+  { value: "HARASSMENT", label: "Harassment or hate" },
+  { value: "SPOILER", label: "Unmarked spoilers" },
+  { value: "OFF_TOPIC", label: "Off topic" },
+  { value: "OTHER", label: "Something else" },
+];
+
+/** Sends a comment to the moderators, with a reason and an optional note. Reporters stay anonymous to them. */
+function ReportComment({ comment }: { comment: CommentView }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState<ReportReason>("SPAM");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const ids = `report-${comment.id}`;
+
+  if (sent) {
+    return (
+      <p role="status" className="text-sm text-muted">
+        Thanks. A moderator will take a look.
+      </p>
+    );
+  }
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="self-start text-sm text-muted underline"
+      >
+        Report<span className="sr-only"> comment by {comment.author.displayName}</span>
+      </button>
+    );
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      await commentsApi.report(comment.id, reason, note.trim());
+      setSent(true);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(event) => void submit(event)}
+      aria-label={`Report comment by ${comment.author.displayName}`}
+      className="flex flex-col gap-2 rounded border border-line p-3"
+    >
+      <div className="flex flex-col gap-1">
+        <label htmlFor={`${ids}-reason`} className="text-sm font-semibold">
+          Why are you reporting it?
+        </label>
+        <select
+          id={`${ids}-reason`}
+          value={reason}
+          onChange={(event) => setReason(event.target.value as ReportReason)}
+          className="h-10 rounded border border-line bg-surface px-2 text-base"
+        >
+          {REASONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label htmlFor={`${ids}-note`} className="text-sm font-semibold">
+          Anything the moderators should know? (optional)
+        </label>
+        <input
+          id={`${ids}-note`}
+          value={note}
+          maxLength={500}
+          onChange={(event) => setNote(event.target.value)}
+          className="h-10 rounded border border-line bg-surface px-3 text-base focus:border-primary-text focus:outline-none"
+        />
+      </div>
+      {error ? (
+        <p role="alert" className="text-sm font-semibold">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex gap-3">
+        <button
+          type="submit"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          className="h-9 rounded bg-primary px-3 text-sm font-semibold text-on-primary disabled:opacity-60"
+        >
+          Send report
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="h-9 rounded border border-line px-3 text-sm font-semibold hover:bg-raised"
+        >
+          Cancel
+        </button>
+      </div>
     </form>
   );
 }

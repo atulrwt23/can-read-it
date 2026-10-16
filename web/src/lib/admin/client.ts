@@ -13,6 +13,9 @@ export type ChapterForm = Schemas["ChapterForm"];
 export type UploadedImage = Schemas["UploadedImage"];
 export type ImageKind = "covers" | "pages";
 export type AnalyticsSummary = Schemas["AnalyticsSummary"];
+export type ModerationQueue = Schemas["Queue"];
+export type QueueItem = Schemas["QueueItem"];
+export type ModerationAction = Schemas["ActionView"];
 
 const base = "/api/v1/admin";
 
@@ -42,6 +45,13 @@ export const admin = {
     api<AdminChapter>("POST", `${base}/chapters/${id}/schedule`, { publishAt }),
   unschedule: (id: string) => api<AdminChapter>("POST", `${base}/chapters/${id}/unschedule`),
   deleteChapter: (id: string) => api("DELETE", `${base}/chapters/${id}`),
+  moderationQueue: (page = 0, size = 20) =>
+    api<ModerationQueue>("GET", `${base}/moderation/comments?page=${page}&size=${size}`),
+  removeComment: (id: string, note?: string) =>
+    api("POST", `${base}/moderation/comments/${id}/remove`, { note: note || undefined }),
+  keepComment: (id: string, note?: string) =>
+    api("POST", `${base}/moderation/comments/${id}/keep`, { note: note || undefined }),
+  moderationActions: () => api<ModerationAction[]>("GET", `${base}/moderation/actions`),
   /** Uploads one image; the API converts it to WebP before answering. */
   upload: (kind: ImageKind, file: File) => {
     const body = new FormData();
@@ -57,6 +67,11 @@ export const ACCEPTED_IMAGES = "image/png,image/jpeg,image/webp";
 /** Staff screens show only to accounts with an admin role; the API checks permissions on every call. */
 export function isStaff(roles: readonly string[]): boolean {
   return roles.includes("ADMIN");
+}
+
+/** Moderators and admins work the moderation queue. */
+export function canModerate(roles: readonly string[]): boolean {
+  return roles.includes("ADMIN") || roles.includes("MODERATOR");
 }
 
 /** `datetime-local` input value (local time, minutes) for an ISO instant, and back. */

@@ -6,6 +6,7 @@ export type SessionView = Schemas["SessionView"];
 export type NotificationSettings = Schemas["NotificationSettings"];
 export type MyRating = Schemas["MyRating"];
 export type CommentView = Schemas["CommentView"];
+export type ReportReason = Schemas["NewReport"]["reason"];
 export type Provider = "google" | "apple";
 
 /** An API error answer (RFC 9457 problem details): the HTTP status and the stable `code`. */
@@ -176,6 +177,8 @@ export const comments = {
   post: (slug: string, number: string, body: string) =>
     api<CommentView>("POST", `/api/v1/series/${slug}/chapters/${number}/comments`, { body }),
   remove: (id: string) => api("DELETE", `/api/v1/me/comments/${id}`),
+  report: (id: string, reason: ReportReason, note?: string) =>
+    api("POST", `/api/v1/comments/${id}/reports`, { reason, note: note || undefined }),
 };
 
 export const account = {
