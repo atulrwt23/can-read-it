@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackEvent } from "@/components/analytics/track-event";
 import { BrowseFilters } from "@/components/browse/browse-filters";
 import { LoadMoreSeries } from "@/components/browse/load-more-series";
 import { SeriesGridCard } from "@/components/series-grid-card";
@@ -30,6 +31,13 @@ export default async function BrowsePage({ searchParams }: Props) {
     // While new filters load, the old results fade (BrowseFilters marks itself data-pending).
     <main className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-6 [&:has([data-pending])_[data-results]]:opacity-50">
       <h1 className="text-3xl">{params.q ? `Results for “${params.q}”` : "Browse"}</h1>
+      {params.q ? (
+        // Counts the search and its result count; the search text itself is never sent.
+        <TrackEvent
+          key={params.q}
+          event={{ name: "SEARCH", value: page.total ?? page.items.length }}
+        />
+      ) : null}
       <BrowseFilters params={params} genres={genres} />
       <div className="flex items-center justify-between gap-3 text-sm text-muted">
         <p aria-live="polite">{resultCount(page.total, page.items.length)}</p>

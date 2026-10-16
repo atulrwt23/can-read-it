@@ -59,3 +59,31 @@ test("an admin creates a series, uploads pages and releases a chapter", async ({
   // Page 2 was moved first: the 500 px tall image leads.
   await expect(pages.first()).toHaveAttribute("height", "500");
 });
+
+test("staff see anonymous daily counts", async ({ page }) => {
+  // A visit to count: leaving the page sends its events.
+  await page.goto("/browse");
+  await page.goto("/");
+  await signInWithCode(page, ADMIN);
+
+  await page.goto("/admin/analytics");
+  await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
+  const table = page.getByRole("table", { name: "Events per day" });
+  await expect(table.getByRole("columnheader", { name: "Page views" })).toBeVisible();
+  // Events arrive within seconds; today's row is counted live.
+  await expect
+    .poll(
+      async () => {
+        await page.reload();
+        const total = await page
+          .getByRole("table", { name: "Events per day" })
+          .locator("tfoot td")
+          .first()
+          .textContent();
+        return Number((total ?? "0").replace(/,/g, ""));
+      },
+      { timeout: 20_000, intervals: [1000, 2000, 3000] },
+    )
+    .toBeGreaterThan(0);
+  await expectAccessibleInBothThemes(page);
+});

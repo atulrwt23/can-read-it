@@ -356,6 +356,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/analytics/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["events"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/series": {
         parameters: {
             query?: never;
@@ -612,6 +628,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/sessions/{id}": {
         parameters: {
             query?: never;
@@ -821,6 +853,18 @@ export interface components {
             email: string;
             botToken?: string | null;
         };
+        ClientEvent: {
+            /** @enum {string} */
+            name: "PAGE_VIEW" | "SERIES_VIEW" | "CHAPTER_OPEN" | "CHAPTER_FINISH" | "SEARCH" | "FOLLOW" | "SIGN_UP";
+            path?: string | null;
+            series?: string | null;
+            chapter?: string | null;
+            /** Format: int32 */
+            value?: number | null;
+        };
+        EventBatch: {
+            events: components["schemas"]["ClientEvent"][];
+        };
         UploadedImage: {
             /** Format: uuid */
             id: string;
@@ -1019,6 +1063,32 @@ export interface components {
             items: components["schemas"]["AdminSeriesItem"][];
             /** Format: int64 */
             total: number;
+        };
+        AnalyticsSummary: {
+            names: string[];
+            days: components["schemas"]["DayCounts"][];
+            topSeries: components["schemas"]["TopSeries"][];
+        };
+        DayCounts: {
+            /** Format: date */
+            day: string;
+            counts: {
+                [key: string]: components["schemas"]["EventCount"];
+            };
+        };
+        EventCount: {
+            /** Format: int64 */
+            events: number;
+            /** Format: int64 */
+            visitors: number;
+        };
+        TopSeries: {
+            slug: string;
+            title: string;
+            /** Format: int64 */
+            opens: number;
+            /** Format: int64 */
+            visitors: number;
         };
         DeleteAccount: {
             currentPassword?: string | null;
@@ -1634,6 +1704,28 @@ export interface operations {
             };
         };
     };
+    events: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EventBatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list: {
         parameters: {
             query?: {
@@ -2079,6 +2171,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["Genre"][];
+                };
+            };
+        };
+    };
+    summary: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AnalyticsSummary"];
                 };
             };
         };

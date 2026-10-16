@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TrackEvent } from "@/components/analytics/track-event";
 import { Badge } from "@/components/badge";
 import { Cover } from "@/components/cover";
 import { ChapterList } from "@/components/series/chapter-list";
@@ -133,6 +134,7 @@ export default async function SeriesPage({ params }: Props) {
             <div className="flex flex-wrap items-center gap-3">
               <ContinueButton slug={series.slug} first={series.chapters.first} />
               <FollowButton slug={series.slug} />
+              <TrackEvent event={{ name: "SERIES_VIEW", series: series.slug }} />
             </div>
           </div>
         </div>

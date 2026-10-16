@@ -10,7 +10,7 @@
 
 ## Counting views
 1. The chapter page sends a beacon (`navigator.sendBeacon`) when it opens.
-2. `ViewCounter` drops crawlers (by user agent), then counts the view once per **visitor, series and UTC day** in the Redis sorted set `views:<day>`. The visitor is an HMAC of IP and user agent with a random salt that changes daily, so it can't be reversed or linked across days.
+2. `ViewCounter` drops crawlers (by user agent), then counts the view once per **visitor, series and UTC day** in the Redis sorted set `views:<day>`. The visitor is an HMAC of IP and user agent with a random salt that changes daily (`shared.Visitors`, also used by [analytics](analytics.md)), so it can't be reversed or linked across days.
 3. Changing the user agent makes a new visitor, so one IP counts at most 30 visitors per series and day (`TODO(product)`: tune for shared mobile addresses).
 4. The beacon is rate limited to 120 requests a minute per IP (`shared.RateLimiter`).
 5. `ViewRollup` (every 5 minutes, `app.discovery.rollup-interval`) copies yesterday's and today's counts into `series_views_daily`, recomputes `series_stats`, and hands each series' 7-day views to `catalog.SeriesPopularity`, which browse's "Popular" sort uses. Each step writes absolute values, so a late, repeated or concurrent run changes nothing.

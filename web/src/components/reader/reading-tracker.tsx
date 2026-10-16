@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { track } from "@/lib/analytics";
 import type { SeriesMeta } from "@/lib/history";
 import { chapterProgress } from "@/lib/reading/store";
 
@@ -43,6 +44,7 @@ export function ReadingTracker({
     const position = () => window.scrollY / maxScroll();
     let active = true;
     let finished = false;
+    track({ name: "CHAPTER_OPEN", series: slug, chapter: number });
 
     void progress.restore().then((saved) => {
       if (!active) return;
@@ -76,6 +78,7 @@ export function ReadingTracker({
       if (canFinish && entries.some((entry) => entry.isIntersecting)) {
         finished = true;
         progress.finish();
+        track({ name: "CHAPTER_FINISH", series: slug, chapter: number });
         observer.disconnect();
       }
     });
