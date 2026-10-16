@@ -232,7 +232,7 @@ All production settings go into **one Vault secret** whose content is the whole 
 
 - **Start from** [`infra/prod/.env.example`](../infra/prod/.env.example).
 - **`POSTGRES_PASSWORD`:** generate one with `openssl rand -base64 32 | tr -d '/+='`.
-- **`SITE_URL`** (optional): the public address once you have a domain, for example `https://canreadit.example`. It turns on canonical URLs and absolute sitemap entries. Leave it empty on a quick tunnel, whose address changes.
+- **`SITE_URL`** (optional): the public address once you have a domain, for example `https://canreadit.example`. It turns on canonical URLs and absolute sitemap entries, and the API needs it for the links in new-chapter emails, which are not sent without it. Leave it empty on a quick tunnel, whose address changes.
 - **`REVALIDATE_SECRET`** (optional): generate one with `openssl rand -hex 32`. With it, a newly published chapter shows on cached pages within seconds instead of about a minute.
 - **`AUTH_JWT_PRIVATE_KEY`** (optional): the key that signs sign-in tokens; see [Sign-in settings](#sign-in-settings).
 - **`TURNSTILE_SECRET_KEY`** (optional): turns on the bot check for sign-up; see [Sign-in settings](#sign-in-settings).

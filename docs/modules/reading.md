@@ -3,7 +3,8 @@
 **Purpose.** A signed-in reader's library (followed series), where they are in each series, the chapters they finished, and the import of the history a guest kept in the browser. Reading itself never needs an account (CLAUDE.md section 2): guests keep the same state in `localStorage` (`web/src/lib/history.ts`), and it moves into the account at sign-in. The module does not own series or chapters (see [catalog](catalog.md)); it stores their IDs.
 
 ## Public API (`com.canreadit.reading`)
-Nothing yet: other modules don't read it. Notifications (phase 2) will need "who follows this series".
+- `ReadingQueries.followers(seriesId)`: the readers who follow a series ([notifications](notifications.md) emails them about new chapters).
+- Events: `SeriesFollowed(userId, seriesId, at)` and `SeriesUnfollowed(userId, seriesId, at)`, published only when the library actually changed.
 
 **Uses:** `catalog.CatalogQueries`:
 - `readableSeriesId(slug)`
