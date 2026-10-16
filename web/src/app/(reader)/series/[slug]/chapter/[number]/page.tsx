@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { permanentRedirect } from "next/navigation";
+import { ChapterComments } from "@/components/reader/chapter-comments";
 import { MangaPages, MangaSettingsButton } from "@/components/reader/manga-reader";
 import { NextChapterPreloader } from "@/components/reader/next-chapter-preloader";
 import { NovelBody, NovelSettingsButton } from "@/components/reader/novel-reader";
@@ -118,6 +119,7 @@ export default async function ChapterPage({ params }: Props) {
             )}
           </div>
         </nav>
+        {chapter.locked ? null : <ChapterComments slug={slug} number={chapter.number} />}
       </main>
       <ReadingTracker
         slug={slug}
