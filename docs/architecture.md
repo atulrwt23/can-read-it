@@ -38,8 +38,8 @@ This document describes how the system fits together. [`CLAUDE.md`](../CLAUDE.md
 ## 3. Backend modules
 
 ```
- feature modules   reading      discovery      notifications      (+ stubs: engagement, monetization,
-                      │           │     │         │        │          moderation, rights, analytics)
+ feature modules   reading      discovery      notifications      (+ engagement, analytics; stubs:
+                      │           │     │         │        │          monetization, moderation, rights)
                       ▼           ▼     │         ▼        ▼
  core modules      catalog ◄──────┘     │      identity    │
                       │  ▲──────────────┼──────────────────┘
@@ -61,6 +61,7 @@ Arrows point from the caller to the called module's **public API**. Feature modu
 | `discovery` | `shared`, `catalog`, `media` | `catalog` (`ChapterPublished`, series changes), `reading` (follows) |
 | `reading` | `shared`, `catalog` (`CatalogQueries`: readable series, visible chapters, cards) | `identity` (`UserDeleted`) |
 | `analytics` | `shared`, `catalog` (readable series, cards) | `identity` (`UserRegistered`) |
+| `engagement` | `shared`, `catalog` (`CatalogQueries`: readable series) | `identity` (`UserDeleted`) |
 | `notifications` | `shared`, `identity` (`UserDirectory`: confirmed contacts), `catalog`, `reading` (`ReadingQueries`: followers) | `catalog` (`ChapterPublished`), `reading` (`SeriesUnfollowed`), `identity` (codes, resets, `UserDeleted`) |
 | stubs | defined when built | defined when built |
 
@@ -93,6 +94,9 @@ One PostgreSQL 18 database with one schema per module. No foreign keys cross a s
 | `media` | media | assets |
 | `reading` | reading | library_entries, reading_progress, read_chapters |
 | `discovery` | discovery | series_stats, series_views_daily |
+| `analytics` | analytics | events, daily_counts |
+| `notifications` | notifications | preferences, pending_chapters |
+| `engagement` | engagement | ratings, series_ratings |
 | `modulith` | Spring Modulith | event_publication (transactional outbox for domain events) |
 
 Redis holds only data that can be rebuilt or thrown away:

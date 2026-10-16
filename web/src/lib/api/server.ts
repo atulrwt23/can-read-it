@@ -9,6 +9,7 @@ import type {
   HomeResponse,
   SeriesDetail,
   SeriesPage,
+  SeriesRating,
   SeriesStatus,
   SeriesType,
 } from "./types";
@@ -134,6 +135,22 @@ export async function getSeries(slug: string): Promise<SeriesDetail> {
       }),
     followSeriesMove(slug, `/series/${slug}`),
   );
+}
+
+/**
+ * The series' average rating, or null when it can't be loaded: the rating is secondary, so the page renders without
+ * it rather than failing.
+ */
+export async function getSeriesRating(slug: string): Promise<SeriesRating | null> {
+  try {
+    const { data, response } = await api(60, [cacheTags.series(slug)]).GET(
+      "/api/v1/series/{slug}/rating",
+      { params: { path: { slug } } },
+    );
+    return response.ok && data ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function getChapters(

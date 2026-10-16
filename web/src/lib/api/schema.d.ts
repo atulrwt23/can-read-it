@@ -4,6 +4,22 @@
  */
 
 export interface paths {
+    "/api/v1/me/ratings/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["myRating"];
+        put: operations["rate"];
+        post?: never;
+        delete: operations["remove"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/progress/{slug}": {
         parameters: {
             query?: never;
@@ -532,6 +548,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{slug}/rating": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["seriesRating"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{slug}/chapters": {
         parameters: {
             query?: never;
@@ -696,6 +728,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        RatingUpdate: {
+            /** Format: int32 */
+            score: number;
+        };
+        MyRating: {
+            /** Format: int32 */
+            score?: number | null;
+            series: components["schemas"]["SeriesRating"];
+        };
+        SeriesRating: {
+            average?: number | null;
+            /** Format: int32 */
+            count: number;
+        };
         ProgressUpdate: {
             number: string;
             /** Format: double */
@@ -1144,6 +1190,76 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    myRating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MyRating"];
+                };
+            };
+        };
+    };
+    rate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RatingUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MyRating"];
+                };
+            };
+        };
+    };
+    remove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["MyRating"];
+                };
+            };
+        };
+    };
     progress: {
         parameters: {
             query?: never;
@@ -2093,6 +2209,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SeriesDetail"];
+                };
+            };
+        };
+    };
+    seriesRating: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SeriesRating"];
                 };
             };
         };

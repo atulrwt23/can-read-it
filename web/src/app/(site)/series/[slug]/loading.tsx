@@ -14,6 +14,7 @@ export default function Loading() {
             <Skeleton tone="surface" className="h-5 w-40" />
             <Skeleton tone="surface" className="h-10 w-3/4" />
             <Skeleton tone="surface" className="h-4 w-1/2" />
+            <Skeleton tone="surface" className="h-5 w-32" />
             <Skeleton tone="surface" className="h-9 w-36" />
           </div>
         </div>
