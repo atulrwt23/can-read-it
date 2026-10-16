@@ -14,14 +14,15 @@ enum Permission {
     /** Create and edit series and chapters, and schedule releases. */
     CATALOG_MANAGE,
     /** See product analytics: daily event counts and the most read series. */
-    ANALYTICS_VIEW;
+    ANALYTICS_VIEW,
+    /** Work the moderation queue: remove reported comments or keep them. */
+    CONTENT_MODERATE;
 
-    // TODO(product): creators manage their own series (series_members) in the Creator Studio (phase 3);
-    // moderators get review permissions with the moderation queue (phase 2).
+    // TODO(product): creators manage their own series (series_members) in the Creator Studio (phase 3).
     private static final Map<Role, Set<Permission>> BY_ROLE = Map.of(
             Role.READER, EnumSet.noneOf(Permission.class),
             Role.CREATOR, EnumSet.noneOf(Permission.class),
-            Role.MODERATOR, EnumSet.noneOf(Permission.class),
+            Role.MODERATOR, EnumSet.of(CONTENT_MODERATE),
             Role.ADMIN, EnumSet.allOf(Permission.class));
 
     static Set<Permission> of(Role role) {

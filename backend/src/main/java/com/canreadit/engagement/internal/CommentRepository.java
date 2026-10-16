@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -39,7 +40,8 @@ class CommentRepository {
     List<Comment> page(UUID chapterId, @Nullable UUID before, int limit) {
         return jdbc.sql("""
                         select id, series_id, chapter_id, user_id, body, created_at from engagement.comments
-                        where chapter_id = :chapter and (cast(:before as uuid) is null or id < :before)
+                        where chapter_id = :chapter and removed_at is null
+                          and (cast(:before as uuid) is null or id < :before)
                         order by id desc
                         limit :limit
                         """)
@@ -56,8 +58,12 @@ class CommentRepository {
                 .list();
     }
 
-    /** Deletes the comment if this reader wrote it. */
+    /** Deletes the comment, and any reports on it, if this reader wrote it. */
     boolean deleteOwn(UUID commentId, UUID userId) {
+        jdbc.sql("""
+                        delete from engagement.reports
+                        where comment_id = (select id from engagement.comments where id = :id and user_id = :user)
+                        """).param("id", commentId).param("user", userId).update();
         return jdbc.sql("delete from engagement.comments where id = :id and user_id = :user")
                         .param("id", commentId)
                         .param("user", userId)
@@ -65,10 +71,24 @@ class CommentRepository {
                 > 0;
     }
 
+    /** Erases a reader's comments, the reports on them, and the reports they made. */
     void deleteAllBy(UUID userId) {
+        jdbc.sql("""
+                        delete from engagement.reports
+                        where reporter_id = :user
+                           or comment_id in (select id from engagement.comments where user_id = :user)
+                        """).param("user", userId).update();
         jdbc.sql("delete from engagement.comments where user_id = :user")
                 .param("user", userId)
                 .update();
+    }
+
+    /** The author of a comment readers can still see. */
+    Optional<UUID> visibleAuthor(UUID commentId) {
+        return jdbc.sql("select user_id from engagement.comments where id = :id and removed_at is null")
+                .param("id", commentId)
+                .query(UUID.class)
+                .optional();
     }
 
     private static OffsetDateTime utc(Instant instant) {
