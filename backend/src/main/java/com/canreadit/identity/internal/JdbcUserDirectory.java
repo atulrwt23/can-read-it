@@ -37,4 +37,22 @@ class JdbcUserDirectory implements UserDirectory {
                 .stream()
                 .collect(Collectors.toMap(Contact::userId, Function.identity()));
     }
+
+    @Override
+    public Map<UUID, Profile> profiles(Collection<UUID> userIds) {
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return jdbc
+                .sql("""
+                        select id, handle, display_name from identity.users
+                        where id in (:ids) and status not in ('PENDING_DELETION', 'DELETED')
+                        """)
+                .param("ids", List.copyOf(userIds))
+                .query((rs, n) -> new Profile(
+                        rs.getObject("id", UUID.class), rs.getString("handle"), rs.getString("display_name")))
+                .list()
+                .stream()
+                .collect(Collectors.toMap(Profile::userId, Function.identity()));
+    }
 }

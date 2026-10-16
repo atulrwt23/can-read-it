@@ -132,6 +132,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/series/{slug}/chapters/{number}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["page"];
+        put?: never;
+        post: operations["post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/unsubscribe": {
         parameters: {
             query?: never;
@@ -724,6 +740,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/comments/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete_1"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -857,6 +889,21 @@ export interface components {
         };
         ChapterBody: {
             markdown: string;
+        };
+        NewComment: {
+            body: string;
+        };
+        Author: {
+            handle: string;
+            displayName: string;
+        };
+        CommentView: {
+            /** Format: uuid */
+            id: string;
+            author: components["schemas"]["Author"];
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
         };
         ChangePassword: {
             currentPassword?: string | null;
@@ -1065,6 +1112,10 @@ export interface components {
             /** @enum {string} */
             type: "MANHWA" | "NOVEL";
             cover?: components["schemas"]["ImageRef"] | null;
+        };
+        CursorPageCommentView: {
+            items: components["schemas"]["CommentView"][];
+            nextCursor?: string | null;
         };
         SessionView: {
             /** Format: uuid */
@@ -1509,6 +1560,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    page: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CursorPageCommentView"];
+                };
+            };
+        };
+    };
+    post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                number: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewComment"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CommentView"];
+                };
             };
         };
     };
@@ -2438,6 +2542,26 @@ export interface operations {
         };
     };
     revokeSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_1: {
         parameters: {
             query?: never;
             header?: never;
