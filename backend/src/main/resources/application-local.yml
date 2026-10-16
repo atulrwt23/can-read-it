@@ -19,6 +19,9 @@ app:
     admin-emails: ${ADMIN_EMAILS:admin@example.com}
   cookies:
     secure: false
+  notifications:
+    # Links in new-chapter emails (read in Mailpit) point at the local web app.
+    site-url: ${SITE_URL:http://localhost:3000}
   media:
     public-base-url: ${MEDIA_PUBLIC_BASE_URL:http://localhost:8333/canreadit-media}
     s3:

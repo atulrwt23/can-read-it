@@ -28,7 +28,7 @@ spring:
       ddl-auto: none
   flyway:
     # History table lives in the first schema (public); module schemas are created on demand.
-    schemas: public,identity,catalog,media,discovery,reading,analytics,modulith
+    schemas: public,identity,catalog,media,discovery,reading,analytics,notifications,modulith
     create-schemas: true
   servlet:
     multipart:
@@ -127,3 +127,12 @@ app:
   analytics:
     # How long raw events stay; daily counts are kept. TODO(product): confirm the window.
     retention: 90d
+  notifications:
+    # The public site, for links in emails (the same SITE_URL as the web app). Empty: digests wait.
+    site-url: ${SITE_URL:}
+    # How often queued chapters are checked, and the least time between two digests to one reader.
+    digest-interval: PT10M
+    # TODO(product): confirm how often a reader may get a new-chapter email.
+    min-gap: PT3H
+    # Queued chapters older than this are dropped rather than sent late.
+    pending-ttl: P7D

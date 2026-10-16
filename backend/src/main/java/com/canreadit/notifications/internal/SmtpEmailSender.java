@@ -28,6 +28,9 @@ class SmtpEmailSender implements EmailSender {
             helper.setTo(message.to());
             helper.setSubject(message.subject());
             helper.setText(message.text(), false);
+            for (var header : message.headers().entrySet()) {
+                mime.setHeader(header.getKey(), header.getValue());
+            }
         } catch (MessagingException e) {
             throw new MailPreparationException("Could not build the email", e);
         }

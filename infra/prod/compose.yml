@@ -69,6 +69,8 @@ services:
       GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
       APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-}
       ADMIN_EMAILS: ${ADMIN_EMAILS:-}
+      # The public address, for links in new-chapter emails; without it they are not sent.
+      SITE_URL: ${SITE_URL:-}
       # Email over SMTP (optional; see .env.example).
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}
