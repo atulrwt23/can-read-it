@@ -10,12 +10,14 @@ class EngagementWebConfig {
 
     /** The same for every visitor, so CDN-cacheable. */
     @Bean
-    PublicGetEndpoints seriesRatings() {
-        return PublicGetEndpoints.of("/api/v1/series/*/rating");
+    PublicGetEndpoints engagementReads() {
+        return PublicGetEndpoints.of("/api/v1/series/*/rating", "/api/v1/series/*/chapters/*/comments");
     }
 
     @Bean
-    AuthenticatedEndpoints myRatings() {
-        return AuthenticatedEndpoints.of("/api/v1/me/ratings/**");
+    AuthenticatedEndpoints engagementWrites() {
+        // Reading comments is public (GET above); posting one needs an account.
+        return AuthenticatedEndpoints.of(
+                "/api/v1/me/ratings/**", "/api/v1/me/comments/**", "/api/v1/series/*/chapters/*/comments");
     }
 }
