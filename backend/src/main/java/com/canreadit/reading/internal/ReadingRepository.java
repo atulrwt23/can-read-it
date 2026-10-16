@@ -34,23 +34,34 @@ class ReadingRepository {
 
     // --- Library
 
-    void follow(UUID userId, UUID seriesId, Instant now) {
-        jdbc.sql("""
+    /** Returns whether the series was newly added. */
+    boolean follow(UUID userId, UUID seriesId, Instant now) {
+        return jdbc.sql("""
                         insert into reading.library_entries (user_id, series_id, added_at)
                         values (:user, :series, :now)
                         on conflict do nothing
                         """)
-                .param("user", userId)
-                .param("series", seriesId)
-                .param("now", utc(now))
-                .update();
+                        .param("user", userId)
+                        .param("series", seriesId)
+                        .param("now", utc(now))
+                        .update()
+                > 0;
     }
 
-    void unfollow(UUID userId, UUID seriesId) {
-        jdbc.sql("delete from reading.library_entries where user_id = :user and series_id = :series")
-                .param("user", userId)
+    /** Returns whether the series was in the library. */
+    boolean unfollow(UUID userId, UUID seriesId) {
+        return jdbc.sql("delete from reading.library_entries where user_id = :user and series_id = :series")
+                        .param("user", userId)
+                        .param("series", seriesId)
+                        .update()
+                > 0;
+    }
+
+    List<UUID> followers(UUID seriesId) {
+        return jdbc.sql("select user_id from reading.library_entries where series_id = :series")
                 .param("series", seriesId)
-                .update();
+                .query(UUID.class)
+                .list();
     }
 
     boolean follows(UUID userId, UUID seriesId) {

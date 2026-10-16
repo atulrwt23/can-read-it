@@ -3,6 +3,8 @@ package com.canreadit.reading.internal;
 import com.canreadit.catalog.CatalogQueries;
 import com.canreadit.catalog.ChapterRef;
 import com.canreadit.catalog.SeriesCard;
+import com.canreadit.reading.SeriesFollowed;
+import com.canreadit.reading.SeriesUnfollowed;
 import com.canreadit.shared.ApiException;
 import com.canreadit.shared.Cursors;
 import java.math.BigDecimal;
@@ -21,6 +23,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,11 +39,14 @@ class ReadingService {
 
     private final ReadingRepository repository;
     private final CatalogQueries catalog;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
-    ReadingService(ReadingRepository repository, CatalogQueries catalog, Clock clock) {
+    ReadingService(
+            ReadingRepository repository, CatalogQueries catalog, ApplicationEventPublisher events, Clock clock) {
         this.repository = repository;
         this.catalog = catalog;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -48,12 +54,19 @@ class ReadingService {
 
     @Transactional
     void follow(UUID userId, String slug) {
-        repository.follow(userId, seriesId(slug), clock.instant());
+        UUID seriesId = seriesId(slug);
+        Instant now = clock.instant();
+        if (repository.follow(userId, seriesId, now)) {
+            events.publishEvent(new SeriesFollowed(userId, seriesId, now));
+        }
     }
 
     @Transactional
     void unfollow(UUID userId, String slug) {
-        repository.unfollow(userId, seriesId(slug));
+        UUID seriesId = seriesId(slug);
+        if (repository.unfollow(userId, seriesId)) {
+            events.publishEvent(new SeriesUnfollowed(userId, seriesId, clock.instant()));
+        }
     }
 
     @Transactional(readOnly = true)
