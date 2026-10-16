@@ -14,6 +14,7 @@ import {
   auth,
   errorMessage,
   type Me,
+  type NotificationSettings,
   type Provider,
   type SessionView,
 } from "@/lib/auth/client";
@@ -71,6 +72,7 @@ export function AccountView({ providers }: { providers: ProviderConfig }) {
     <Shell>
       <ProfileSection me={me} />
       <EmailSection me={me} />
+      <NotificationsSection me={me} />
       <PasswordSection me={me} />
       <MethodsSection me={me} providers={providers} />
       <SessionsSection />
@@ -238,6 +240,67 @@ function EmailSection({ me }: { me: Me }) {
             Send confirmation code
           </Button>
         </>
+      )}
+    </Section>
+  );
+}
+
+/** New-chapter emails for followed series (docs/modules/notifications.md). Saved as soon as it changes. */
+function NotificationsSection({ me }: { me: Me }) {
+  const [settings, setSettings] = useState<NotificationSettings | null>(null);
+  const [failed, setFailed] = useState(false);
+  const { busy, run, notice } = useAction();
+
+  useEffect(() => {
+    account
+      .notifications()
+      .then(setSettings)
+      .catch(() => setFailed(true));
+  }, []);
+
+  return (
+    <Section title="Emails">
+      {notice}
+      {failed ? (
+        <Notice kind="error">Your email settings could not be loaded. Reload to try again.</Notice>
+      ) : settings === null ? (
+        <Skeleton className="h-12 w-full" />
+      ) : (
+        <div className="flex flex-col gap-1">
+          <label className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 accent-primary-text"
+              checked={settings.newChapterEmails}
+              disabled={busy}
+              aria-describedby="new-chapter-emails-hint"
+              onChange={(event) => {
+                const newChapterEmails = event.target.checked;
+                // Shown at once; put back if saving fails.
+                setSettings({ newChapterEmails });
+                void run(async () => {
+                  try {
+                    setSettings(await account.updateNotifications({ newChapterEmails }));
+                  } catch (caught) {
+                    setSettings({ newChapterEmails: !newChapterEmails });
+                    throw caught;
+                  }
+                  return newChapterEmails
+                    ? "New-chapter emails are on."
+                    : "New-chapter emails are off.";
+                });
+              }}
+            />
+            <span className="font-semibold">New chapters of series I follow</span>
+          </label>
+          <p id="new-chapter-emails-hint" className="pl-7 text-sm text-muted">
+            One email lists what came out, at most every few hours.
+            {me.email && !me.emailVerified
+              ? " We only email confirmed addresses, so confirm yours above to get them."
+              : null}
+            {me.email ? null : " This account has no email address, so nothing is sent."}
+          </p>
+        </div>
       )}
     </Section>
   );

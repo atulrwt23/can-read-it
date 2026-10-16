@@ -82,7 +82,16 @@ export function routeTemplate(pathname: string): string | null {
   if (path === "/admin" || path.startsWith("/admin/")) return null;
   if (/^\/series\/[^/]+\/chapter\/[^/]+$/.test(path)) return "/series/[slug]/chapter/[number]";
   if (/^\/series\/[^/]+$/.test(path)) return "/series/[slug]";
-  const known = ["/", "/browse", "/library", "/login", "/login/reset", "/signup", "/account"];
+  const known = [
+    "/",
+    "/browse",
+    "/library",
+    "/login",
+    "/login/reset",
+    "/signup",
+    "/account",
+    "/unsubscribe",
+  ];
   return known.includes(path) ? path : "/[other]";
 }
 

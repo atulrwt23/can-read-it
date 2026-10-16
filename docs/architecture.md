@@ -61,7 +61,7 @@ Arrows point from the caller to the called module's **public API**. Feature modu
 | `discovery` | `shared`, `catalog`, `media` | `catalog` (`ChapterPublished`, series changes), `reading` (follows) |
 | `reading` | `shared`, `catalog` (`CatalogQueries`: readable series, visible chapters, cards) | `identity` (`UserDeleted`) |
 | `analytics` | `shared`, `catalog` (readable series, cards) | `identity` (`UserRegistered`) |
-| `notifications` | `shared`, `identity`, `catalog` | `catalog` (`ChapterPublished`), `identity` (codes, resets) |
+| `notifications` | `shared`, `identity` (`UserDirectory`: confirmed contacts), `catalog`, `reading` (`ReadingQueries`: followers) | `catalog` (`ChapterPublished`), `reading` (`SeriesUnfollowed`), `identity` (codes, resets, `UserDeleted`) |
 | stubs | defined when built | defined when built |
 
 A dependency cycle, or an arrow pointing upward (for example `catalog` calling `discovery`), is a design bug. Use an event instead.
@@ -120,7 +120,7 @@ Losing Redis never loses committed data. At worst, rankings lose up to one roll-
    - emits `ChapterPublished` through the Modulith outbox
 4. Listeners react:
    - `discovery` asks the web app to refresh the cached home, browse and series pages (`POST /internal/revalidate`, cache tags)
-   - `notifications` emails followers (phase 2)
+   - `notifications` queues the chapter for each follower and emails them a digest, at most every 3 hours ([notifications.md](modules/notifications.md))
 
 ### Home and rankings ([ADR 0005](decisions/0005-discovery-owns-home-and-rankings.md))
 - `GET /api/v1/home` is served by `discovery`. It reads featured and latest series from `catalog`'s public API and rankings from `discovery.series_stats`.

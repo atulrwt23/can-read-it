@@ -81,6 +81,9 @@ Changing the password and deleting the account need the current password when th
 - **Audit:** `auth_events` records `PASSWORD_CHANGED`, `PROFILE_CHANGED`, `DELETION_REQUESTED`, `DELETION_CANCELLED`, `REGISTERED`, `IDENTITY_LINKED`, `IDENTITY_UNLINKED`, `SIGNED_IN`, `SIGN_IN_FAILED` and `CODE_FAILED` (with the user when the email exists), `SIGNED_OUT`, `REFRESH_REUSED`, `EMAIL_VERIFIED`, `PASSWORD_RESET`, `PASSWORD_REMOVED`, `SESSIONS_REVOKED` and `ROLE_GRANTED`, with IP and user agent. Failures are committed even though the request fails.
 - **Retention:** `IdentityCleanup` runs daily at 04:23 UTC (`app.auth.cleanup-cron`): it deletes codes a day after they expire, expired refresh tokens, and `auth_events` older than `app.auth.event-retention` (180 days).
 
+## Public API for other modules
+`UserDirectory.contacts(userIds)` returns the email and display name of the given users, but only for `ACTIVE` accounts with a confirmed email. Notifications uses it, so nobody is emailed at an address they never proved.
+
 ## Events
 `UserRegistered(userId, handle, registeredAt)`, `EmailVerified(userId, verifiedAt)`, `PasswordChanged(userId, changedAt)`, `UserDeletionRequested(userId, requestedAt, eraseAfter)`, `UserDeleted(userId, deletedAt)`, `RoleGranted(userId, role, grantedBy, grantedAt)`, and `AccountEmailRequested` for `notifications` (see above). The rest from CLAUDE.md section 7 arrive with the flows that cause them.
 

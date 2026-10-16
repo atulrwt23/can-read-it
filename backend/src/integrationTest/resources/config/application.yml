@@ -5,3 +5,6 @@ app:
   auth:
     # Signing in with this verified email grants ADMIN (the staff tests use it).
     admin-emails: admin@example.com
+  notifications:
+    # Links in new-chapter emails; without a site, digests wait.
+    site-url: https://canreadit.test
