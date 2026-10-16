@@ -12,7 +12,9 @@ enum Permission {
     /** Upload covers and chapter pages. */
     MEDIA_UPLOAD,
     /** Create and edit series and chapters, and schedule releases. */
-    CATALOG_MANAGE;
+    CATALOG_MANAGE,
+    /** See product analytics: daily event counts and the most read series. */
+    ANALYTICS_VIEW;
 
     // TODO(product): creators manage their own series (series_members) in the Creator Studio (phase 3);
     // moderators get review permissions with the moderation queue (phase 2).
