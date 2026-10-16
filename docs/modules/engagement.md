@@ -1,9 +1,14 @@
 # engagement
 
-**Purpose.** What readers say about series: ratings and chapter comments now, reports later in phase 2. The module does not own series (see [catalog](catalog.md)); it stores their IDs.
+**Purpose.** What readers say about series: ratings, chapter comments, and reports on comments. The module does not own series (see [catalog](catalog.md)); it stores their IDs.
 
 ## Public API (`com.canreadit.engagement`)
-Nothing yet: other modules don't read it. `discovery.series_stats` has rating columns for when rankings use ratings; an event (for example `SeriesRated`) will feed them then.
+- **`CommentModeration`, for [moderation](moderation.md):**
+  - reported comments, with counts per reason and the reporters' notes, never who reported
+  - `remove` hides a comment and closes its reports
+  - `keep` closes its reports
+- **`ReportReason`:** `SPAM`, `HARASSMENT`, `SPOILER`, `OFF_TOPIC`, `OTHER`.
+- **Ratings.** `discovery.series_stats` has rating columns for when rankings use ratings; an event (for example `SeriesRated`) will feed them then.
 
 **Uses:**
 - `catalog.CatalogQueries`:
@@ -30,8 +35,18 @@ Nothing yet: other modules don't read it. `discovery.series_stats` has rating co
 - **Authors.**
   - Comments show the author's display name and handle, and nothing else about the account.
   - Comments by accounts waiting to be deleted are hidden at once. Erasing the account deletes them.
-  - Authors delete their own comments. Moderators removing other people's comments comes with reports and the moderation queue.
+  - Authors delete their own comments (and the reports on them). Moderators remove other people's through the moderation queue.
 - **Paging.** The list is public and the same for everyone, cached for 15 seconds. It uses cursor paging by comment ID (UUIDv7, so newest first), served by the index `(chapter_id, id desc)`.
+
+## Reports
+- **Who can report.** Any signed-in reader can report a comment they didn't write. They give a reason and an optional note of at most 500 characters. `TODO(product)`: require a confirmed email if reports get abused.
+- **Repeats.** A reader's second report on the same comment, while the first is open, changes nothing.
+- **Limit.** 10 reports an hour per reader.
+- **The queue.** A comment with open reports appears in the moderation queue. A moderator either:
+  - removes it: `removed_at` and `removed_by` are set, the comment never shows again, and its reports close as `REMOVED`
+  - keeps it: its reports close as `DISMISSED`
+  A later report reopens it.
+- **Erasure.** Erasing an account deletes the reports it made and the reports on its comments.
 
 ## Endpoints
 | Route | Notes |
@@ -43,6 +58,7 @@ Nothing yet: other modules don't read it. `discovery.series_stats` has rating co
 | `GET /api/v1/series/{slug}/chapters/{number}/comments?cursor=&limit=` | Public, the same for everyone: `{items: [{id, author: {handle, displayName}, body, createdAt}], nextCursor}`, newest first, 20 a page by default (at most 50). CDN-cacheable for 15 seconds. `404` for a chapter that isn't out |
 | `POST /api/v1/series/{slug}/chapters/{number}/comments` | Signed in, CSRF, confirmed email. Body `{body}`. `201` with the comment; `400 comment_empty` or `comment_too_long` |
 | `DELETE /api/v1/me/comments/{id}` | Signed in, CSRF. Deletes the reader's own comment; `404` for anyone else's |
+| `POST /api/v1/comments/{id}/reports` | Signed in, CSRF. Body `{reason, note?}`. `204`; `400 cannot_report_own_comment`; `404` for a comment that is gone or removed |
 
 The `me` routes and comment posts are `no-store`. Rating changes are limited to 30 a minute per reader.
 
@@ -53,7 +69,8 @@ Migration `V202610161800__engagement_ratings.sql`. There are no foreign keys to 
 |---|---|---|
 | `ratings` | (user_id, series_id) | `score` 1–5 (`smallint`, checked), `created_at`, `updated_at` |
 | `series_ratings` | series_id | `ratings` (count) and `score_sum`, neither below zero |
-| `comments` | id (UUIDv7) | `series_id`, `chapter_id`, `user_id`, `body` (1–2000 characters, checked), `created_at`. Indexes `(chapter_id, id desc)` and `(user_id)`. Migration `V202610161900__engagement_comments.sql` |
+| `comments` | id (UUIDv7) | `series_id`, `chapter_id`, `user_id`, `body` (1–2000 characters, checked), `created_at`, and `removed_at`/`removed_by` once a moderator removes it. Indexes `(chapter_id, id desc)` and `(user_id)`. Migrations `V202610161900__engagement_comments.sql` and `V202610162000__engagement_reports.sql` |
+| `reports` | id (UUIDv7) | `comment_id`, `reporter_id`, `reason`, `note`, `created_at`, then `resolved_at`, `resolution` (`REMOVED`, `DISMISSED`) and `resolved_by`. One open report per reader and comment (partial unique index) |
 
 ## Web
 - **Series banner.** The average and the number of ratings (`3.4 (748 ratings)`) are rendered on the server, the same for every visitor. If the rating can't be loaded, the page renders without it.
@@ -67,3 +84,4 @@ Migration `V202610161800__engagement_ratings.sql`. There are no foreign keys to 
   - The list loads when the reader is near the end of the chapter, without cookies, 20 at a time with "Load more comments".
   - Signed-in readers with a confirmed email get a text box with a character count. Others get a link to sign in or to confirm their email.
   - A new comment appears at the top straight away. Authors see "Delete" on their own comments, matched by handle.
+  - Other signed-in readers see "Report", which opens a short form: a reason, an optional note, and "Send report".
