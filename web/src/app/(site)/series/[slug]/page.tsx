@@ -7,8 +7,9 @@ import { ChapterList } from "@/components/series/chapter-list";
 import { ContinueButton } from "@/components/series/continue-button";
 import { ExpandableText } from "@/components/series/expandable-text";
 import { FollowButton } from "@/components/series/follow-button";
+import { SeriesRating } from "@/components/series/series-rating";
 import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
-import { getChapters, getSeries, REMOVED, removedSeries } from "@/lib/api/server";
+import { getChapters, getSeries, getSeriesRating, REMOVED, removedSeries } from "@/lib/api/server";
 import { label } from "@/lib/format";
 import { seriesPath } from "@/lib/routes";
 import { canonical, jsonLd, siteUrl } from "@/lib/site";
@@ -46,9 +47,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function SeriesPage({ params }: Props) {
   const { slug } = await params;
-  const [series, chapters] = await Promise.all([
+  const [series, chapters, rating] = await Promise.all([
     getSeries(slug).catch(removedSeries),
     getChapters(slug, { limit: 100 }).catch(removedSeries),
+    getSeriesRating(slug),
   ]);
   if (series === REMOVED || chapters === REMOVED) {
     return <SeriesRemoved />;
@@ -131,6 +133,7 @@ export default async function SeriesPage({ params }: Props) {
                 </div>
               )}
             </dl>
+            <SeriesRating slug={series.slug} initial={rating} />
             <div className="flex flex-wrap items-center gap-3">
               <ContinueButton slug={series.slug} first={series.chapters.first} />
               <FollowButton slug={series.slug} />
