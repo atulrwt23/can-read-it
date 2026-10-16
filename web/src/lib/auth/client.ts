@@ -3,6 +3,7 @@ import type { components } from "@/lib/api/schema";
 type Schemas = components["schemas"];
 export type Me = Schemas["MeResponse"];
 export type SessionView = Schemas["SessionView"];
+export type NotificationSettings = Schemas["NotificationSettings"];
 export type Provider = "google" | "apple";
 
 /** An API error answer (RFC 9457 problem details): the HTTP status and the stable `code`. */
@@ -176,4 +177,7 @@ export const account = {
   unlink: (provider: Provider) => api("DELETE", `/api/v1/me/identities/${provider}`),
   delete: (currentPassword?: string) =>
     api<{ eraseAfter: string }>("DELETE", "/api/v1/me", { currentPassword }),
+  notifications: () => api<NotificationSettings>("GET", "/api/v1/me/notifications"),
+  updateNotifications: (settings: NotificationSettings) =>
+    api<NotificationSettings>("PATCH", "/api/v1/me/notifications", settings),
 };
