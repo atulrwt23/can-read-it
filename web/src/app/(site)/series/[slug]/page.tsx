@@ -5,6 +5,7 @@ import { Cover } from "@/components/cover";
 import { ChapterList } from "@/components/series/chapter-list";
 import { ContinueButton } from "@/components/series/continue-button";
 import { ExpandableText } from "@/components/series/expandable-text";
+import { FollowButton } from "@/components/series/follow-button";
 import { removedMetadata, SeriesRemoved } from "@/components/series/series-removed";
 import { getChapters, getSeries, REMOVED, removedSeries } from "@/lib/api/server";
 import { label } from "@/lib/format";
@@ -131,7 +132,7 @@ export default async function SeriesPage({ params }: Props) {
             </dl>
             <div className="flex flex-wrap items-center gap-3">
               <ContinueButton slug={series.slug} first={series.chapters.first} />
-              {/* TODO(step 4): Follow button once reading/follows ship. */}
+              <FollowButton slug={series.slug} />
             </div>
           </div>
         </div>

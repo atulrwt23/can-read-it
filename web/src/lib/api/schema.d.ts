@@ -4,6 +4,102 @@
  */
 
 export interface paths {
+    "/api/v1/me/progress/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["progress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/library/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["follow"];
+        post?: never;
+        delete: operations["unfollow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/series/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["series"];
+        put: operations["update"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/chapters/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["chapter"];
+        put: operations["updateChapter"];
+        post?: never;
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/chapters/{id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["pages"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/chapters/{id}/body": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["body"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/series/{slug}/views": {
         parameters: {
             query?: never;
@@ -63,6 +159,22 @@ export interface paths {
         put?: never;
         post: operations["linkIdentity"];
         delete: operations["unlinkIdentity"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/history/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importHistory"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -244,6 +356,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list"];
+        put?: never;
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/series/{id}/chapters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["createChapter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/media/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["upload"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/chapters/{id}/unschedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unschedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/chapters/{id}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["schedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me": {
         parameters: {
             query?: never;
@@ -283,7 +475,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["series"];
+        get: operations["series_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -299,7 +491,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["list"];
+        get: operations["list_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -315,7 +507,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get: operations["chapter"];
+        get: operations["chapter_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -332,6 +524,54 @@ export interface paths {
             cookie?: never;
         };
         get: operations["sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/series/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["series_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["library"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["history"];
         put?: never;
         post?: never;
         delete?: never;
@@ -392,6 +632,122 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ProgressUpdate: {
+            number: string;
+            /** Format: double */
+            position: number;
+            finished: boolean;
+        };
+        SeriesForm: {
+            title: string;
+            slug?: string | null;
+            /** @enum {string} */
+            type: "MANHWA" | "NOVEL";
+            /** @enum {string} */
+            status: "ONGOING" | "COMPLETED" | "HIATUS";
+            /** @enum {string} */
+            visibility: "DRAFT" | "PUBLISHED" | "UNLISTED" | "REMOVED";
+            /** @enum {string} */
+            ageRating: "ALL" | "TEEN" | "MATURE";
+            synopsis?: string | null;
+            altTitles?: string[] | null;
+            genres?: string[] | null;
+            /** Format: uuid */
+            coverAssetId?: string | null;
+            /** Format: int32 */
+            firstReleasedYear?: number | null;
+            releaseCadence?: string | null;
+        };
+        AdminChapterItem: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            title?: string | null;
+            /** @enum {string} */
+            status: "DRAFT" | "SCHEDULED" | "PUBLISHED";
+            /** Format: date-time */
+            publishAt?: string | null;
+            /** Format: date-time */
+            publishedAt?: string | null;
+            live: boolean;
+            /** Format: int32 */
+            pageCount: number;
+            /** Format: int32 */
+            wordCount: number;
+        };
+        AdminSeries: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            altTitles: string[];
+            synopsis: string;
+            /** @enum {string} */
+            type: "MANHWA" | "NOVEL";
+            /** @enum {string} */
+            status: "ONGOING" | "COMPLETED" | "HIATUS";
+            /** @enum {string} */
+            visibility: "DRAFT" | "PUBLISHED" | "UNLISTED" | "REMOVED";
+            /** @enum {string} */
+            ageRating: "ALL" | "TEEN" | "MATURE";
+            genres: string[];
+            /** Format: uuid */
+            coverAssetId?: string | null;
+            cover?: components["schemas"]["ImageRef"] | null;
+            /** Format: int32 */
+            firstReleasedYear?: number | null;
+            releaseCadence?: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+            chapters: components["schemas"]["AdminChapterItem"][];
+        };
+        ImageRef: {
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+        };
+        ChapterForm: {
+            number: string;
+            title?: string | null;
+        };
+        AdminChapter: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            seriesId: string;
+            seriesSlug: string;
+            seriesTitle: string;
+            /** @enum {string} */
+            seriesType: "MANHWA" | "NOVEL";
+            number: string;
+            title?: string | null;
+            /** @enum {string} */
+            status: "DRAFT" | "SCHEDULED" | "PUBLISHED";
+            /** Format: date-time */
+            publishAt?: string | null;
+            /** Format: date-time */
+            publishedAt?: string | null;
+            live: boolean;
+            pages: components["schemas"]["AdminPage"][];
+            body?: string | null;
+        };
+        AdminPage: {
+            /** Format: uuid */
+            assetId: string;
+            url?: string | null;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+        };
+        ChapterPages: {
+            assetIds: string[];
+        };
+        ChapterBody: {
+            markdown: string;
+        };
         ChangePassword: {
             currentPassword?: string | null;
             newPassword: string;
@@ -399,6 +755,24 @@ export interface components {
         OAuthToken: {
             idToken: string;
             nonce: string;
+        };
+        HistoryImport: {
+            series: components["schemas"]["ImportedSeries"][];
+        };
+        ImportedSeries: {
+            slug: string;
+            number: string;
+            /** Format: double */
+            position: number;
+            /** Format: date-time */
+            updatedAt: string;
+            read?: string[] | null;
+        };
+        ImportResult: {
+            /** Format: int32 */
+            imported: number;
+            /** Format: int32 */
+            skipped: number;
         };
         ResetPassword: {
             email: string;
@@ -447,6 +821,19 @@ export interface components {
             email: string;
             botToken?: string | null;
         };
+        UploadedImage: {
+            /** Format: uuid */
+            id: string;
+            url: string;
+            /** Format: int32 */
+            width: number;
+            /** Format: int32 */
+            height: number;
+        };
+        ChapterSchedule: {
+            /** Format: date-time */
+            publishAt?: string | null;
+        };
         UpdateProfile: {
             handle?: string | null;
             displayName?: string | null;
@@ -462,13 +849,6 @@ export interface components {
         Genre: {
             slug: string;
             name: string;
-        };
-        ImageRef: {
-            url: string;
-            /** Format: int32 */
-            width: number;
-            /** Format: int32 */
-            height: number;
         };
         SeriesCard: {
             /** Format: uuid */
@@ -569,6 +949,36 @@ export interface components {
             /** Format: date-time */
             lastUsedAt: string;
         };
+        ReadingProgress: {
+            number: string;
+            /** Format: double */
+            position: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        SeriesReading: {
+            following: boolean;
+            progress?: components["schemas"]["ReadingProgress"] | null;
+            readChapters: string[];
+        };
+        LibraryItem: {
+            series: components["schemas"]["SeriesCard"];
+            /** Format: date-time */
+            addedAt: string;
+            progress?: components["schemas"]["ReadingProgress"] | null;
+        };
+        LibraryPage: {
+            items: components["schemas"]["LibraryItem"][];
+            nextCursor?: string | null;
+        };
+        HistoryItem: {
+            series: components["schemas"]["SeriesCard"];
+            progress: components["schemas"]["ReadingProgress"];
+        };
+        HistoryPage: {
+            items: components["schemas"]["HistoryItem"][];
+            nextCursor?: string | null;
+        };
         HomeResponse: {
             featured: components["schemas"]["SeriesCard"][];
             latestUpdates: components["schemas"]["SeriesCard"][];
@@ -586,6 +996,30 @@ export interface components {
             views: number;
             series: components["schemas"]["SeriesCard"];
         };
+        AdminSeriesItem: {
+            /** Format: uuid */
+            id: string;
+            slug: string;
+            title: string;
+            /** @enum {string} */
+            type: "MANHWA" | "NOVEL";
+            /** @enum {string} */
+            status: "ONGOING" | "COMPLETED" | "HIATUS";
+            /** @enum {string} */
+            visibility: "DRAFT" | "PUBLISHED" | "UNLISTED" | "REMOVED";
+            cover?: components["schemas"]["ImageRef"] | null;
+            /** Format: int32 */
+            chapterCount: number;
+            /** Format: date-time */
+            lastPublishedAt?: string | null;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        AdminSeriesList: {
+            items: components["schemas"]["AdminSeriesItem"][];
+            /** Format: int64 */
+            total: number;
+        };
         DeleteAccount: {
             currentPassword?: string | null;
         };
@@ -602,6 +1036,238 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    progress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressUpdate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    follow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    unfollow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    series: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminSeries"];
+                };
+            };
+        };
+    };
+    update: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeriesForm"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminSeries"];
+                };
+            };
+        };
+    };
+    chapter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminChapter"];
+                };
+            };
+        };
+    };
+    updateChapter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterForm"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminChapter"];
+                };
+            };
+        };
+    };
+    delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pages: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterPages"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminChapter"];
+                };
+            };
+        };
+    };
+    body: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminChapter"];
+                };
+            };
+        };
+    };
     view: {
         parameters: {
             query?: never;
@@ -703,6 +1369,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    importHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HistoryImport"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ImportResult"];
+                };
             };
         };
     };
@@ -944,6 +1634,157 @@ export interface operations {
             };
         };
     };
+    list: {
+        parameters: {
+            query?: {
+                q?: string;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminSeriesList"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeriesForm"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminSeries"];
+                };
+            };
+        };
+    };
+    createChapter: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterForm"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminChapter"];
+                };
+            };
+        };
+    };
+    upload: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["UploadedImage"];
+                };
+            };
+        };
+    };
+    unschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminChapter"];
+                };
+            };
+        };
+    };
+    schedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChapterSchedule"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AdminChapter"];
+                };
+            };
+        };
+    };
     me: {
         parameters: {
             query?: never;
@@ -1040,7 +1881,7 @@ export interface operations {
             };
         };
     };
-    series: {
+    series_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -1062,7 +1903,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_1: {
         parameters: {
             query?: {
                 lang?: string;
@@ -1089,7 +1930,7 @@ export interface operations {
             };
         };
     };
-    chapter: {
+    chapter_1: {
         parameters: {
             query?: {
                 lang?: string;
@@ -1130,6 +1971,74 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["SessionView"][];
+                };
+            };
+        };
+    };
+    series_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["SeriesReading"];
+                };
+            };
+        };
+    };
+    library: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["LibraryPage"];
+                };
+            };
+        };
+    };
+    history: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["HistoryPage"];
                 };
             };
         };

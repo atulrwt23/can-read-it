@@ -23,6 +23,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenResolver;
@@ -39,7 +40,8 @@ import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Deny by default. Modules open routes by registering {@link PublicGetEndpoints}, {@link PublicPostEndpoints} and
+ * Deny by default. Endpoints that need a permission also say so with {@code @PreAuthorize} (method security is on).
+ * Modules open routes by registering {@link PublicGetEndpoints}, {@link PublicPostEndpoints} and
  * {@link AuthenticatedEndpoints} beans.
  *
  * <p>Signed-in requests carry our own ES256 JWT (identity module), from the {@code Authorization: Bearer} header
@@ -49,6 +51,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * credentials and skip that check.
  */
 @Configuration(proxyBeanMethods = false)
+@EnableMethodSecurity
 class SecurityConfig {
 
     private static final String[] OPERATIONAL_GETS = {

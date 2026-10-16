@@ -16,6 +16,10 @@ final class ChapterNumbers {
         return number.stripTrailingZeros().toPlainString();
     }
 
+    static boolean isValid(String raw) {
+        return VALID.matcher(raw).matches();
+    }
+
     static BigDecimal parse(String raw) {
         if (!VALID.matcher(raw).matches()) {
             throw ApiException.badRequest("invalid_chapter_number", "'" + raw + "' is not a valid chapter number.");

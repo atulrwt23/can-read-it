@@ -44,6 +44,7 @@ dependencies {
     implementation(libs.spring.boot.starter.mail)
     implementation(libs.spring.boot.starter.oauth2.resource.server)
     implementation(libs.bouncycastle.prov)
+    implementation(libs.webp.imageio)
     implementation(libs.bucket4j.lettuce)
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.spring.modulith.starter.jdbc)

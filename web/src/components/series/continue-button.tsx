@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { getProgress, type Progress } from "@/lib/history";
+import { useSeriesReading } from "@/lib/reading/use-series-reading";
 import { chapterPath } from "@/lib/routes";
 
-/** Primary action: continue from guest history when there is some, otherwise start at chapter one. */
+/** Primary action: continue where the reader left off (account or guest history), otherwise start at chapter one. */
 export function ContinueButton({
   slug,
   first,
@@ -13,9 +12,8 @@ export function ContinueButton({
   slug: string;
   first: string | null | undefined;
 }) {
-  const [progress, setProgress] = useState<Progress | undefined>();
-
-  useEffect(() => setProgress(getProgress(slug)), [slug]);
+  const [reading] = useSeriesReading(slug);
+  const progress = reading?.progress;
 
   const className =
     "inline-block rounded bg-primary px-4 py-2 text-sm font-semibold text-on-primary hover:brightness-95";

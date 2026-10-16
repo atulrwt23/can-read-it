@@ -1,16 +1,8 @@
 import type { Metadata } from "next";
+import { LibraryView } from "@/components/library/library-view";
 
-export const metadata: Metadata = { title: "Library" };
+export const metadata: Metadata = { title: "Library", robots: { index: false } };
 
 export default function Page() {
-  return (
-    <main className="mx-auto max-w-md px-4 py-16">
-      <div className="rounded-md bg-surface p-6 text-center shadow-card">
-        <h1 className="mb-2 text-2xl">Library</h1>
-        <p className="text-muted">
-          Your library, follows and reading history arrive in roadmap step 4.
-        </p>
-      </div>
-    </main>
-  );
+  return <LibraryView />;
 }

@@ -1,14 +1,9 @@
 import Link from "next/link";
 import { BRAND_NAME } from "@/lib/brand";
 import { AccountMenu, AccountMenuItems } from "./auth/account-menu";
+import { NavLinks } from "./nav-links";
 import { SearchBox } from "./search-box";
 import { ThemeToggle } from "./theme-toggle";
-
-const NAV = [
-  { href: "/", label: "Home" },
-  { href: "/browse", label: "Browse" },
-  { href: "/library", label: "Library" },
-];
 
 export function SiteHeader() {
   return (
@@ -20,16 +15,7 @@ export function SiteHeader() {
         </Link>
         <nav aria-label="Primary" className="hidden md:block">
           <ul className="flex gap-1">
-            {NAV.map((item) => (
-              <li key={item.href}>
-                <Link
-                  href={item.href}
-                  className="rounded px-3 py-2 text-sm font-medium text-muted hover:bg-raised hover:text-text"
-                >
-                  {item.label}
-                </Link>
-              </li>
-            ))}
+            <NavLinks variant="bar" />
           </ul>
         </nav>
         <SearchBox className="ml-auto hidden w-72 sm:block" />
@@ -78,16 +64,7 @@ export function SiteHeader() {
         className="m-0 mt-14 ml-auto w-56 rounded-md border border-line bg-surface p-2 text-text shadow-card"
       >
         <ul>
-          {NAV.map((item) => (
-            <li key={item.href}>
-              <Link
-                href={item.href}
-                className="block rounded px-3 py-2 text-sm font-medium hover:bg-raised"
-              >
-                {item.label}
-              </Link>
-            </li>
-          ))}
+          <NavLinks variant="menu" />
           <li>
             <AccountMenuItems />
           </li>

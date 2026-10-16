@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LoadMoreSeries } from "@/components/browse/load-more-series";
 import { ContinueReading } from "@/components/home/continue-reading";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { PopularPanel } from "@/components/home/popular-panel";
 import { SeriesGridCard } from "@/components/series-grid-card";
-import { getHome } from "@/lib/api/server";
+import { getHome, getLatestUpdates, LATEST_UPDATES } from "@/lib/api/server";
 import { canonical } from "@/lib/site";
 
 export const revalidate = 60;
@@ -14,8 +15,8 @@ export function generateMetadata(): Metadata {
 }
 
 export default async function HomePage() {
-  const home = await getHome();
-  if (!home) {
+  const [home, latest] = await Promise.all([getHome(), getLatestUpdates()]);
+  if (!home || !latest) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-16 text-center text-muted">
         The catalogue is warming up. Refresh in a moment.
@@ -40,9 +41,12 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {home.latestUpdates.map((series, index) => (
+            {latest.items.map((series, index) => (
               <SeriesGridCard key={series.id} series={series} eager={index < 4} />
             ))}
+            {latest.nextCursor ? (
+              <LoadMoreSeries params={LATEST_UPDATES} cursor={latest.nextCursor} />
+            ) : null}
           </div>
         </section>
         <aside>

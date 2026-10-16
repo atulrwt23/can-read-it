@@ -125,9 +125,9 @@ flowchart TD
 |---|---|---|---|
 | `cloudflared-quick` | `cloudflare/cloudflared` | none (~50 MB) | Quick tunnel. Its address changes whenever this container restarts. |
 | `web` | `ghcr.io/atulrwt23/can-read-it-web:<sha>` | 1 GB | Next.js standalone, non-root, `/healthz` health check. |
-| `api` | `ghcr.io/atulrwt23/can-read-it-api:<sha>` | 2 GB | Spring Boot (`prod,demo` profiles), non-root, read-only filesystem. The JVM heap is 75% of the limit. |
+| `api` | `ghcr.io/atulrwt23/can-read-it-api:<sha>` | 2 GB | Spring Boot (`prod,demo` profiles), non-root, read-only filesystem with `noexec` tmpfs `/tmp` and a small `exec` tmpfs for the WebP codec's native library. The JVM heap is 75% of the limit. |
 | `postgres` | `postgres:18.6-alpine` | 1.5 GB | `shared_buffers` 512 MB. Data in the `canreadit-prod_postgres-data` volume. |
-| `redis` | `redis:8.10.2-alpine` | 320 MB | Unused until step 2. |
+| `redis` | `redis:8.10.2-alpine` | 320 MB | Rate limits, view counters, the session denylist and sign-in nonces. |
 
 The limits add up to about 4.9 GB, so the stack fits the smallest Always Free Arm shape (1 OCPU / 6 GB), and `bootstrap.sh` adds 2 GB of swap as a safety net. A running demo stack actually uses about 1 GB. On a 12 GB VM the limits (and `shared_buffers`) can be doubled in `compose.yml`.
 
@@ -342,6 +342,10 @@ Both are optional, so the beta deploys without them. Add them to the Vault secre
   ```
   Replacing it later has the same effect as a restart: browsers renew once. The public half is served at `/.well-known/jwks.json`.
 - **`TURNSTILE_SECRET_KEY`** turns on the bot check for sign-up. Create a widget in Cloudflare → **Turnstile** for your site's hostname; the secret key goes here, and the site key goes to the web app once its sign-up page exists. Without a secret the check is off. With one, a failed or unreachable check refuses the sign-up.
+
+### Staff (admin) access
+
+**`ADMIN_EMAILS`** (optional, comma-separated) names the accounts that get the `ADMIN` role, and with it the `/admin` catalog tools, when they sign in. The address has to be confirmed first, which needs working email ([Email settings](#email-settings)) or Google/Apple sign-in, so on a beta without a domain nobody can become admin yet; use the local stack to try the tools. After adding an address, sign out and back in to pick up the role.
 
 ### Google and Apple sign-in
 

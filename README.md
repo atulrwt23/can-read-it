@@ -36,6 +36,7 @@ cd web && pnpm install && pnpm dev
 | API | http://localhost:8080/api/v1/home |
 | API docs (Swagger UI) | http://localhost:8080/swagger-ui.html |
 | Emails (Mailpit) | http://localhost:8025 |
+| Catalog admin | http://localhost:3000/admin (sign in as `admin@example.com` with an emailed code from Mailpit) |
 | Images (SeaweedFS, S3 API) | http://localhost:8333/canreadit-media/ |
 
 All seed content is invented placeholder text and generated images. To reseed from scratch, drop the volumes and start again:

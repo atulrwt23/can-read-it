@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
   }
   const origin = siteUrl();
   return {
-    rules: { userAgent: "*", allow: "/", disallow: ["/api/", "/internal/"] },
+    rules: { userAgent: "*", allow: "/", disallow: ["/api/", "/internal/", "/admin"] },
     sitemap: origin ? new URL("/sitemap.xml", origin).href : undefined,
   };
 }

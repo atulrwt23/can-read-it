@@ -14,6 +14,9 @@ spring:
       mail.smtp.starttls.required: false
 
 app:
+  auth:
+    # Sign in with this address (an emailed code, read in Mailpit) to use /admin locally and in the e2e tests.
+    admin-emails: ${ADMIN_EMAILS:admin@example.com}
   cookies:
     secure: false
   media:

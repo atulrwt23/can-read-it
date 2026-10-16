@@ -2,9 +2,13 @@ package com.canreadit.catalog.internal;
 
 import static com.canreadit.catalog.internal.SeriesRepository.VISIBLE_CHAPTER;
 
+import com.canreadit.catalog.ChapterRef;
 import com.canreadit.catalog.ChapterSummary;
 import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
@@ -65,6 +69,44 @@ class ChapterRepository {
                 .param("number", number)
                 .query((rs, n) -> new ChapterRow(rs.getObject("id", UUID.class), SeriesRepository.chapterSummary(rs)))
                 .optional();
+    }
+
+    /** Visible chapters of the edition among these numbers, keyed by formatted number. */
+    Map<String, ChapterRef> visibleRefs(UUID editionId, UUID seriesId, List<BigDecimal> numbers) {
+        Map<String, ChapterRef> refs = new HashMap<>();
+        jdbc.sql("""
+                        select c.id, c.number from catalog.chapters c
+                        where c.edition_id = :edition and c.number in (:numbers) and %s
+                        """.formatted(VISIBLE_CHAPTER))
+                .param("edition", editionId)
+                .param("numbers", numbers)
+                .query((rs, n) -> {
+                    String number = ChapterNumbers.format(rs.getBigDecimal("number"));
+                    return refs.put(number, new ChapterRef(rs.getObject("id", UUID.class), seriesId, number));
+                })
+                .list();
+        return refs;
+    }
+
+    Map<UUID, ChapterRef> refsByIds(Collection<UUID> ids) {
+        if (ids.isEmpty()) {
+            return Map.of();
+        }
+        Map<UUID, ChapterRef> refs = new HashMap<>();
+        jdbc.sql("""
+                        select c.id, e.series_id, c.number from catalog.chapters c
+                        join catalog.editions e on e.id = c.edition_id
+                        where c.id in (:ids)
+                        """)
+                .param("ids", List.copyOf(ids))
+                .query((rs, n) -> refs.put(
+                        rs.getObject("id", UUID.class),
+                        new ChapterRef(
+                                rs.getObject("id", UUID.class),
+                                rs.getObject("series_id", UUID.class),
+                                ChapterNumbers.format(rs.getBigDecimal("number")))))
+                .list();
+        return refs;
     }
 
     Neighbours neighbours(UUID editionId, BigDecimal number) {

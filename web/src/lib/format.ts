@@ -37,6 +37,11 @@ const LABELS: Record<string, string> = {
   ALL: "All ages",
   TEEN: "Teen",
   MATURE: "Mature",
+  DRAFT: "Draft",
+  PUBLISHED: "Published",
+  UNLISTED: "Unlisted",
+  REMOVED: "Removed",
+  SCHEDULED: "Scheduled",
 };
 
 export function label(value: string): string {

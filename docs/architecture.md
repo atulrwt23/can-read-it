@@ -59,7 +59,7 @@ Arrows point from the caller to the called module's **public API**. Feature modu
 | `identity` | `shared`, `media` (avatar URLs) | nothing |
 | `catalog` | `shared`, `media` | `media` (`AssetReady`) |
 | `discovery` | `shared`, `catalog`, `media` | `catalog` (`ChapterPublished`, series changes), `reading` (follows) |
-| `reading` | `shared`, `catalog` | `identity` (`UserDeleted`) |
+| `reading` | `shared`, `catalog` (`CatalogQueries`: readable series, visible chapters, cards) | `identity` (`UserDeleted`) |
 | `notifications` | `shared`, `identity`, `catalog` | `catalog` (`ChapterPublished`), `identity` (codes, resets) |
 | stubs | defined when built | defined when built |
 

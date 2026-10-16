@@ -1,14 +1,17 @@
 package com.canreadit.catalog.internal;
 
 import com.canreadit.catalog.CatalogQueries;
+import com.canreadit.catalog.ChapterRef;
 import com.canreadit.catalog.Genre;
 import com.canreadit.catalog.SeriesCard;
 import com.canreadit.media.ImageVariant;
 import com.canreadit.media.MediaUrls;
 import com.canreadit.shared.ApiException;
 import com.canreadit.shared.Cursors;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -24,11 +27,13 @@ import org.springframework.transaction.annotation.Transactional;
 class CatalogService implements CatalogQueries {
 
     private final SeriesRepository series;
+    private final ChapterRepository chapters;
     private final SeriesCards cards;
     private final MediaUrls mediaUrls;
 
-    CatalogService(SeriesRepository series, SeriesCards cards, MediaUrls mediaUrls) {
+    CatalogService(SeriesRepository series, ChapterRepository chapters, SeriesCards cards, MediaUrls mediaUrls) {
         this.series = series;
+        this.chapters = chapters;
         this.cards = cards;
         this.mediaUrls = mediaUrls;
     }
@@ -40,8 +45,44 @@ class CatalogService implements CatalogQueries {
 
     @Override
     public List<SeriesCard> cardsByIds(List<UUID> seriesIds) {
-        Map<UUID, SeriesRow> byId =
-                series.publishedByIds(seriesIds).stream().collect(Collectors.toMap(SeriesRow::id, Function.identity()));
+        return inOrder(seriesIds, series.publishedByIds(seriesIds));
+    }
+
+    @Override
+    public List<SeriesCard> readableCardsByIds(List<UUID> seriesIds) {
+        return inOrder(seriesIds, series.readableByIds(seriesIds));
+    }
+
+    @Override
+    public Optional<ChapterRef> visibleChapter(UUID seriesId, String number) {
+        BigDecimal parsed = ChapterNumbers.parse(number);
+        return chapters.findEdition(seriesId, null)
+                .flatMap(edition -> chapters.findVisible(edition, parsed))
+                .map(row -> new ChapterRef(row.id(), seriesId, row.summary().number()));
+    }
+
+    @Override
+    public Map<String, ChapterRef> visibleChapters(UUID seriesId, Collection<String> numbers) {
+        List<BigDecimal> parsed = numbers.stream()
+                .filter(ChapterNumbers::isValid)
+                .map(BigDecimal::new)
+                .distinct()
+                .toList();
+        if (parsed.isEmpty()) {
+            return Map.of();
+        }
+        return chapters.findEdition(seriesId, null)
+                .map(edition -> chapters.visibleRefs(edition, seriesId, parsed))
+                .orElse(Map.of());
+    }
+
+    @Override
+    public Map<UUID, ChapterRef> chaptersByIds(Collection<UUID> chapterIds) {
+        return chapters.refsByIds(chapterIds);
+    }
+
+    private List<SeriesCard> inOrder(List<UUID> seriesIds, List<SeriesRow> rows) {
+        Map<UUID, SeriesRow> byId = rows.stream().collect(Collectors.toMap(SeriesRow::id, Function.identity()));
         return cards.toCards(seriesIds.stream()
                 .distinct()
                 .filter(byId::containsKey)

@@ -38,6 +38,9 @@ The platform only hosts content we have the rights to publish: original work, li
 | Media URLs | Only the `media` module builds image URLs (`MediaUrls`). Assets are `PUBLIC` (CDN, cached forever) or `PROTECTED` (signed, short-lived) ([ADR 0004](docs/decisions/0004-media-url-resolver-and-asset-visibility.md)) |
 | Home and rankings | Owned by `discovery`: daily view counters in Redis, rolled up into Postgres ([ADR 0005](docs/decisions/0005-discovery-owns-home-and-rankings.md)). Featured is automatic for now (the week's most viewed) |
 | View counting | A view counts once per visitor, series and UTC day. The visitor is a daily-salted HMAC of IP and user agent (nothing personal stored), crawlers are ignored, and one IP counts at most 30 visitors per series and day ([docs/modules/discovery.md](docs/modules/discovery.md)) |
+| Image pipeline | Uploads are checked (20 MB, 50 MP, PNG/JPEG/WebP by magic bytes, never SVG), resized down and re-encoded to lossy WebP inside the upload request, which strips all metadata. Pages: one variant 1080 px wide. Covers: 1200, 600 and 300 px. No original is kept. The codec is libwebp through JNI (`webp-imageio`), which needs an `exec` tmpfs in the read-only API container ([docs/modules/media.md](docs/modules/media.md)) |
+| Staff access | Roles map to a fixed set of `Permission`s, checked with `@PreAuthorize("hasAuthority(...)")`; only `ADMIN` has any so far. `ADMIN_EMAILS` grants `ADMIN` at sign-in to listed addresses, only once confirmed. Staff edit the catalog at `/admin` through `/api/v1/admin/*` ([docs/modules/identity.md](docs/modules/identity.md), [docs/modules/catalog.md](docs/modules/catalog.md)) |
+| Reading sync | Signed-in readers keep their library (following = in the library), progress and read chapters in the `reading` schema, by series and chapter ID; the API speaks slugs and chapter numbers. Progress is one row per series and the latest timestamp wins. The web store uses the account when signed in and `localStorage` for guests, and imports the guest history once after sign-in ([docs/modules/reading.md](docs/modules/reading.md)) |
 | Rate limits | `shared.RateLimiter`: Bucket4j token buckets in Redis, keyed by a hash of the client key, answering 429 with `Retry-After`, and allowing requests when Redis is down. Pages rendered by Next.js call the API from the web container, so per-visitor limits on them belong at the edge |
 | Email | Sent over SMTP only. **Resend** for the beta, Mailpit locally ([ADR 0007](docs/decisions/0007-email-over-smtp.md)). Account emails (codes, notices) are a plain async event (`identity.AccountEmailRequested`), not a persisted module event, so codes never reach the event table; a failed send is logged and dropped ([docs/modules/notifications.md](docs/modules/notifications.md)) |
 | Account deletion | `DELETE /me` starts a 30-day grace period; signing in again cancels it. Afterwards a daily job erases the account to a tombstone row (ID kept for other modules) and publishes `UserDeleted`. Password changes and deletion need the current password, or a sign-in within 10 minutes for accounts without one ([docs/modules/identity.md](docs/modules/identity.md)) |
@@ -71,6 +74,7 @@ Use the **latest stable GA release** of each item at the time you scaffold, and 
 - Spring Modulith (module verification, event publication registry, `@ApplicationModuleListener`)
 - springdoc-openapi (OpenAPI spec at `/v3/api-docs`, used to generate the web client types)
 - AWS SDK v2 S3 client (works against SeaweedFS locally and Cloudflare R2 in the beta)
+- `webp-imageio` (libwebp through JNI) to decode and encode WebP in the media pipeline; PNG and JPEG use the JDK's ImageIO
 - Spring Mail (`JavaMailSender`) for SMTP. No email-vendor SDKs
 - Testing: JUnit 5, AssertJ, Testcontainers (Postgres, Redis), Spring Modulith test support
 - Formatting: Spotless with palantir-java-format
@@ -308,7 +312,7 @@ POST   /me/history/import                                   → merges guest his
 
 ## 8. Web rules
 
-- Routes: `/`, `/browse`, `/series/[slug]`, `/series/[slug]/chapter/[number]`, `/library`, `/login` (with `/login/reset`), `/signup`, `/account`. Studio and admin come later under `/studio` and `/admin`.
+- Routes: `/`, `/browse`, `/series/[slug]`, `/series/[slug]/chapter/[number]`, `/library`, `/login` (with `/login/reset`), `/signup`, `/account`, and `/admin` (staff catalog tools: series, chapters, uploads, releases; client-rendered and `noindex`). Studio comes later under `/studio`.
 - Home, browse and series pages are **server-rendered** for SEO. The reader is a server-rendered shell with client components for scrolling, progress tracking and settings.
 - **Public pages are identical for every visitor.** They never read auth cookies during render, so the CDN and Next.js can cache them. Anything personal (library state, "continue reading", the account menu) loads in client components after hydration. Catalog pages use time-based revalidation plus on-demand revalidation triggered by `ChapterPublished`.
 - The browser only calls same-origin `/api/*`. In local development, a Next.js rewrite proxies `/api/*` to `http://localhost:8080`. In production, the edge routes `/api/*` to the backend (section 9). Server components call the backend through an internal base URL (`API_INTERNAL_URL`); only personalised server routes forward cookies.
@@ -316,7 +320,7 @@ POST   /me/history/import                                   → merges guest his
 - `next build` runs without a backend (CI, image builds). Pages prerendered at build time must tolerate an unreachable API (`getHome` returns `null` during the build phase and the page shows a placeholder until the first revalidation). Series and chapter pages are generated on first request (`generateStaticParams` returns `[]`).
 - The theme bootstrap script is the first child of `<body>`, never in `<head>`: React hydrates `<head>` as soon as cached app chunks run, which can happen before the parser reaches an inline script there (production-only hydration error #418).
 - Chapter pages render with the explicit `width` and `height` returned by the API, so the layout never shifts. The first two pages load eagerly; the rest are lazy-loaded.
-- Guests keep history and reading progress in localStorage, with each series' title, type and cover so the home page's "Continue reading" row needs no request. After sign-in, the app calls `POST /api/v1/me/history/import` once, then clears the local copy.
+- Guests keep history and reading progress in localStorage, with each series' title, type and cover so the home page's "Continue reading" row needs no request. After sign-in, the app calls `POST /api/v1/me/history/import` once, then clears the local copy. Signed-in reading lives in the account (`lib/reading/store.ts` picks the place; the reader sends progress at most every 10 s and on leaving).
 - Results added with "Load more" come back, at the same scroll position, when the reader returns with the back button (`lib/restore-on-back.ts`, keyed by history entry). A fresh visit starts over.
 - Every route segment has a `loading.tsx` skeleton in flat token colours, shaped like the page. Because the skeleton starts the stream, a missing series or chapter answers 200 with `noindex` (Next.js's streamed not-found) rather than 404. `TODO(product):` if real 404s are needed (analytics, compliance), check slugs in `proxy.ts`.
 - **SEO:** canonical URLs and `og:url` need the public origin, so they are only emitted when `SITE_URL` is set (the quick tunnel's address changes). Series pages carry Open Graph and Twitter cards and `ComicSeries`/`BookSeries` JSON-LD; `/sitemap.xml` lists home, browse and every published series from the API; search results and locked chapters are `noindex`. Icons live in `app/` (`favicon.ico`, `icon.png`, `apple-icon.png`).
@@ -324,10 +328,10 @@ POST   /me/history/import                                   → merges guest his
 - Reaching a chapter's end panel marks it read in the guest history; the series page ticks read chapters, highlights the last one opened, and offers "Go to chapter".
 - Reader robustness: the chapter picker fetches every chapter in the background (pages of 200), a progress line shows how far through the chapter the reader is, failed page images retry once and then offer "Try again", the next chapter (and its first three manhwa pages) is prefetched past 60% of the current one, and manhwa has a page-width setting saved in localStorage.
 - **Page structure (the design spec; there is no prototype file):**
-  - **Header:** sticky header with logo, primary nav (Home, Browse, Library), search box with type-ahead suggestions (cover thumbnail, title, type badge), theme toggle, and sign-in / account menu. It collapses to a menu button and a search icon on mobile.
+  - **Header:** sticky header with logo, primary nav (Home, Browse, Library; the current section is highlighted with `aria-current="page"`), search box with type-ahead suggestions (cover thumbnail, title, type badge), theme toggle, and sign-in / account menu. It collapses to a menu button and a search icon on mobile.
   - **Home:**
     - hero carousel of featured series (banner, title, genres, synopsis excerpt, "Read now")
-    - "Latest updates" grid of cards (cover, title, the latest 2–3 chapters with relative times, and a "new" badge on chapters under 24h old)
+    - "Latest updates" grid of cards (cover, title, the latest 2–3 chapters with relative times, and a "new" badge on chapters under 24h old): the first page of browse by update, 12 cards, with cursor-based "Load more"
     - ranked "Popular" side panel with Today / Week / All-time tabs and numbered entries
     - on mobile the panel stacks below the grid
   - **Browse:** a filter bar (type, status, genres, sort), a results grid with cursor-based "Load more", and filters mirrored in the URL query.
@@ -418,9 +422,9 @@ All of it costs $0. Every piece can be swapped by configuration.
 **Phase 1 (MVP: a readable product)**
 1. **Skeleton + catalog read slice** (done)
 2. **Identity** (all sign-in methods, tokens, sessions, account page) (done: 2a sessions and password sign-in, 2b email codes, confirmation and password reset, 2c Google and Apple sign-in, off until client IDs are configured, 2d account management, 2e web sign-in, sign-up, reset and account pages; session renewal happens in the browser, not `proxy.ts`)
-3. Media upload pipeline + minimal admin upload screen + scheduled publishing (the publish job, `ChapterPublished` and page revalidation are done) ← next
-4. Reading: library, follows, progress sync, guest history import
-5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`) (SEO basics and the beta deployment are done; analytics events remain)
+3. **Media upload pipeline + minimal admin upload screen + scheduled publishing** (done: WebP pipeline, permissions and `ADMIN_EMAILS`, catalog admin API, `/admin` screens, scheduling and "release now")
+4. **Reading: library, follows, progress sync, guest history import** (done: `reading` schema and `/api/v1/me/{library,series,progress,history}`, Follow button, `/library`, account-or-browser reading store, import after sign-in)
+5. SEO basics (metadata, sitemap), analytics events, beta deployment (`infra/prod`) (SEO basics and the beta deployment are done; analytics events remain) ← next
 
 Phase 2: notifications, ratings, comments, reports and moderation queue.
 Phase 3: Creator Studio, coins and early access, subscriptions, ads.
