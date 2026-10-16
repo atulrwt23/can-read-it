@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { PageViewTracker } from "@/components/analytics/page-view-tracker";
 import { THEME_SCRIPT } from "@/components/theme-toggle";
 import { BRAND_NAME } from "@/lib/brand";
 import { siteUrl } from "@/lib/site";
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: static theme bootstrap, no user input */}
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
         {children}
+        <PageViewTracker />
       </body>
     </html>
   );

@@ -12,6 +12,7 @@ export type SeriesForm = Schemas["SeriesForm"];
 export type ChapterForm = Schemas["ChapterForm"];
 export type UploadedImage = Schemas["UploadedImage"];
 export type ImageKind = "covers" | "pages";
+export type AnalyticsSummary = Schemas["AnalyticsSummary"];
 
 const base = "/api/v1/admin";
 
@@ -23,6 +24,7 @@ export const admin = {
     return api<AdminSeriesList>("GET", `${base}/series?${params}`);
   },
   series: (id: string) => api<AdminSeries>("GET", `${base}/series/${id}`),
+  analytics: (days: number) => api<AnalyticsSummary>("GET", `${base}/analytics?days=${days}`),
   createSeries: (form: SeriesForm) => api<AdminSeries>("POST", `${base}/series`, form),
   updateSeries: (id: string, form: SeriesForm) =>
     api<AdminSeries>("PUT", `${base}/series/${id}`, form),

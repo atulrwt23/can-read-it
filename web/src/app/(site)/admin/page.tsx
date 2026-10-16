@@ -10,9 +10,14 @@ export default function Page() {
     <AdminShell
       title="Catalog"
       actions={
-        <Link href="/admin/series/new" className={linkButton}>
-          New series
-        </Link>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link href="/admin/analytics" className="text-sm font-semibold text-link underline">
+            Analytics
+          </Link>
+          <Link href="/admin/series/new" className={linkButton}>
+            New series
+          </Link>
+        </div>
       }
     >
       <SeriesList />

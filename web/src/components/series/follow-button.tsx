@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { track } from "@/lib/analytics";
 import { errorMessage } from "@/lib/auth/client";
 import { setFollowing } from "@/lib/reading/store";
 import { useSeriesReading } from "@/lib/reading/use-series-reading";
@@ -35,6 +36,7 @@ export function FollowButton({ slug }: { slug: string }) {
     setError(null);
     try {
       await setFollowing(slug, !following);
+      if (!following) track({ name: "FOLLOW", series: slug });
       setReading({ ...reading, following: !following });
     } catch (caught) {
       setError(errorMessage(caught));
