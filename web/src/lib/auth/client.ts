@@ -5,6 +5,7 @@ export type Me = Schemas["MeResponse"];
 export type SessionView = Schemas["SessionView"];
 export type NotificationSettings = Schemas["NotificationSettings"];
 export type MyRating = Schemas["MyRating"];
+export type CommentView = Schemas["CommentView"];
 export type Provider = "google" | "apple";
 
 /** An API error answer (RFC 9457 problem details): the HTTP status and the stable `code`. */
@@ -169,6 +170,12 @@ export const ratings = {
   rate: (slug: string, score: number) =>
     api<MyRating>("PUT", `/api/v1/me/ratings/${slug}`, { score }),
   remove: (slug: string) => api<MyRating>("DELETE", `/api/v1/me/ratings/${slug}`),
+};
+
+export const comments = {
+  post: (slug: string, number: string, body: string) =>
+    api<CommentView>("POST", `/api/v1/series/${slug}/chapters/${number}/comments`, { body }),
+  remove: (id: string) => api("DELETE", `/api/v1/me/comments/${id}`),
 };
 
 export const account = {
