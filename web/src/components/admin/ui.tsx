@@ -6,7 +6,7 @@ import { type ReactNode, useCallback, useState } from "react";
 import { Notice } from "@/components/auth/form";
 import { useSession } from "@/components/auth/session";
 import { Skeleton } from "@/components/skeleton";
-import { isStaff } from "@/lib/admin/client";
+import { canModerate, isStaff } from "@/lib/admin/client";
 import { errorMessage } from "@/lib/auth/client";
 
 /** The staff page frame: a heading, breadcrumbs back to the list, and the content once access is confirmed. */
@@ -14,11 +14,14 @@ export function AdminShell({
   title,
   back,
   actions,
+  access = "admin",
   children,
 }: {
   title: string;
   back?: { href: string; label: string };
   actions?: ReactNode;
+  /** Who may see the page: admins (the default), or moderators too. */
+  access?: "admin" | "moderator";
   children: ReactNode;
 }) {
   return (
@@ -34,13 +37,19 @@ export function AdminShell({
           {actions}
         </div>
       </div>
-      <StaffOnly>{children}</StaffOnly>
+      <StaffOnly allowed={access === "moderator" ? canModerate : isStaff}>{children}</StaffOnly>
     </main>
   );
 }
 
 /** Shows its children to signed-in staff only. The API enforces this too; here it just explains. */
-function StaffOnly({ children }: { children: ReactNode }) {
+function StaffOnly({
+  allowed,
+  children,
+}: {
+  allowed: (roles: readonly string[]) => boolean;
+  children: ReactNode;
+}) {
   const session = useSession();
   const pathname = usePathname();
   if (session.status === "loading") {
@@ -56,7 +65,7 @@ function StaffOnly({ children }: { children: ReactNode }) {
   if (session.status === "signed-out") {
     return (
       <Section title="Sign in to continue">
-        <p>The catalog tools are for staff. Sign in with a staff account.</p>
+        <p>This page is for staff. Sign in with a staff account.</p>
         <Link
           href={`/login?next=${encodeURIComponent(pathname)}`}
           className="self-start rounded bg-primary px-4 py-2 text-sm font-semibold text-on-primary"
@@ -66,10 +75,10 @@ function StaffOnly({ children }: { children: ReactNode }) {
       </Section>
     );
   }
-  if (!isStaff(session.me.roles)) {
+  if (!allowed(session.me.roles)) {
     return (
       <Section title="No access">
-        <p>Your account can't edit the catalog.</p>
+        <p>Your account can't use this staff page.</p>
         <Link href="/" className="self-start text-link underline">
           Back to reading
         </Link>

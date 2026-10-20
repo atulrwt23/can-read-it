@@ -244,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/comments/{id}/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/refresh": {
         parameters: {
             query?: never;
@@ -446,6 +462,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["createChapter"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/moderation/comments/{id}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["remove_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/moderation/comments/{id}/keep": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["keep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -708,6 +756,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/moderation/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/moderation/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["actions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/analytics": {
         parameters: {
             query?: never;
@@ -931,6 +1011,11 @@ export interface components {
             /** Format: int32 */
             skipped: number;
         };
+        NewReport: {
+            /** @enum {string} */
+            reason: "SPAM" | "HARASSMENT" | "SPOILER" | "OFF_TOPIC" | "OTHER";
+            note?: string | null;
+        };
         ResetPassword: {
             email: string;
             code: string;
@@ -989,6 +1074,9 @@ export interface components {
         };
         EventBatch: {
             events: components["schemas"]["ClientEvent"][];
+        };
+        Decision: {
+            note?: string | null;
         };
         UploadedImage: {
             /** Format: uuid */
@@ -1198,6 +1286,48 @@ export interface components {
             items: components["schemas"]["AdminSeriesItem"][];
             /** Format: int64 */
             total: number;
+        };
+        Person: {
+            handle: string;
+            displayName: string;
+        };
+        Place: {
+            seriesSlug?: string | null;
+            seriesTitle?: string | null;
+            chapterNumber?: string | null;
+        };
+        Queue: {
+            /** Format: int64 */
+            total: number;
+            items: components["schemas"]["QueueItem"][];
+        };
+        QueueItem: {
+            /** Format: uuid */
+            commentId: string;
+            body: string;
+            /** Format: date-time */
+            createdAt: string;
+            author?: components["schemas"]["Person"] | null;
+            place: components["schemas"]["Place"];
+            /** Format: int32 */
+            reports: number;
+            reasons: {
+                [key: string]: number;
+            };
+            notes: string[];
+            /** Format: date-time */
+            firstReportedAt: string;
+        };
+        ActionView: {
+            /** Format: uuid */
+            id: string;
+            moderator?: components["schemas"]["Person"] | null;
+            action: string;
+            /** Format: uuid */
+            commentId: string;
+            note?: string | null;
+            /** Format: date-time */
+            at: string;
         };
         AnalyticsSummary: {
             names: string[];
@@ -1762,6 +1892,30 @@ export interface operations {
             };
         };
     };
+    report: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewReport"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     refresh: {
         parameters: {
             query?: never;
@@ -2075,6 +2229,54 @@ export interface operations {
                 content: {
                     "*/*": components["schemas"]["AdminChapter"];
                 };
+            };
+        };
+    };
+    remove_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Decision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    keep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Decision"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
@@ -2515,6 +2717,51 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["Genre"][];
+                };
+            };
+        };
+    };
+    queue: {
+        parameters: {
+            query?: {
+                page?: number;
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["Queue"];
+                };
+            };
+        };
+    };
+    actions: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ActionView"][];
                 };
             };
         };

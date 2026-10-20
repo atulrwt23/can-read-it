@@ -1,5 +1,6 @@
 package com.canreadit.engagement.internal;
 
+import com.canreadit.engagement.ReportReason;
 import com.canreadit.shared.ApiException;
 import com.canreadit.shared.CursorPage;
 import com.canreadit.shared.PublicCache;
@@ -43,13 +44,23 @@ class CommentController {
     /** New comments may take this long to show for other readers. */
     static final Duration PUBLIC_CACHE = Duration.ofSeconds(15);
 
+    /** Reports are rare; this stops one reader from flooding the queue. */
+    static final RateLimit REPORT = new RateLimit("engagement-report", 10, Duration.ofHours(1));
+
     private final CommentService comments;
+    private final ReportService reports;
     private final RateLimiter rateLimiter;
 
-    CommentController(CommentService comments, RateLimiter rateLimiter) {
+    CommentController(CommentService comments, ReportService reports, RateLimiter rateLimiter) {
         this.comments = comments;
+        this.reports = reports;
         this.rateLimiter = rateLimiter;
     }
+
+    /** @param note optional details for the moderators */
+    record NewReport(
+            @NotNull ReportReason reason,
+            @Size(max = 500) @Nullable String note) {}
 
     /** Validated again after trimming; the raw limit leaves room for whitespace that gets removed. */
     record NewComment(@NotNull @Size(max = 4000) String body) {}
@@ -86,6 +97,19 @@ class CommentController {
         UUID userId = UUID.fromString(jwt.getSubject());
         rateLimiter.check(DELETE, userId.toString());
         comments.delete(userId, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * Reports a comment to the moderators. Any signed-in reader may report (TODO(product): require a confirmed
+     * email if reports get abused); reporting the same comment again changes nothing.
+     */
+    @PostMapping("/api/v1/comments/{id}/reports")
+    ResponseEntity<Void> report(
+            @AuthenticationPrincipal Jwt jwt, @PathVariable UUID id, @Valid @RequestBody NewReport report) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        rateLimiter.check(REPORT, userId.toString());
+        reports.report(userId, id, report.reason(), report.note());
         return ResponseEntity.noContent().build();
     }
 

@@ -11,6 +11,9 @@ export default function Page() {
       title="Catalog"
       actions={
         <div className="flex flex-wrap items-center gap-3">
+          <Link href="/admin/moderation" className="text-sm font-semibold text-link underline">
+            Moderation
+          </Link>
           <Link href="/admin/analytics" className="text-sm font-semibold text-link underline">
             Analytics
           </Link>

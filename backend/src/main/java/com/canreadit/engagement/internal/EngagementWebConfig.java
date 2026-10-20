@@ -18,6 +18,9 @@ class EngagementWebConfig {
     AuthenticatedEndpoints engagementWrites() {
         // Reading comments is public (GET above); posting one needs an account.
         return AuthenticatedEndpoints.of(
-                "/api/v1/me/ratings/**", "/api/v1/me/comments/**", "/api/v1/series/*/chapters/*/comments");
+                "/api/v1/me/ratings/**",
+                "/api/v1/me/comments/**",
+                "/api/v1/series/*/chapters/*/comments",
+                "/api/v1/comments/*/reports");
     }
 }

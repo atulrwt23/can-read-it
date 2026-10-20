@@ -38,8 +38,8 @@ This document describes how the system fits together. [`CLAUDE.md`](../CLAUDE.md
 ## 3. Backend modules
 
 ```
- feature modules   reading      discovery      notifications      (+ engagement, analytics; stubs:
-                      │           │     │         │        │          monetization, moderation, rights)
+ feature modules   reading      discovery      notifications      (+ engagement, moderation, analytics;
+                      │           │     │         │        │          stubs: monetization, rights)
                       ▼           ▼     │         ▼        ▼
  core modules      catalog ◄──────┘     │      identity    │
                       │  ▲──────────────┼──────────────────┘
@@ -62,6 +62,7 @@ Arrows point from the caller to the called module's **public API**. Feature modu
 | `reading` | `shared`, `catalog` (`CatalogQueries`: readable series, visible chapters, cards) | `identity` (`UserDeleted`) |
 | `analytics` | `shared`, `catalog` (readable series, cards) | `identity` (`UserRegistered`) |
 | `engagement` | `shared`, `catalog` (`CatalogQueries`: readable series, visible chapters), `identity` (`UserDirectory`: public names) | `identity` (`UserDeleted`) |
+| `moderation` | `shared`, `engagement` (`CommentModeration`), `catalog` (chapters, cards), `identity` (`UserDirectory`: public names) | nothing yet |
 | `notifications` | `shared`, `identity` (`UserDirectory`: confirmed contacts), `catalog`, `reading` (`ReadingQueries`: followers) | `catalog` (`ChapterPublished`), `reading` (`SeriesUnfollowed`), `identity` (codes, resets, `UserDeleted`) |
 | stubs | defined when built | defined when built |
 
@@ -96,7 +97,8 @@ One PostgreSQL 18 database with one schema per module. No foreign keys cross a s
 | `discovery` | discovery | series_stats, series_views_daily |
 | `analytics` | analytics | events, daily_counts |
 | `notifications` | notifications | preferences, pending_chapters |
-| `engagement` | engagement | ratings, series_ratings, comments |
+| `engagement` | engagement | ratings, series_ratings, comments, reports |
+| `moderation` | moderation | actions (audit log) |
 | `modulith` | Spring Modulith | event_publication (transactional outbox for domain events) |
 
 Redis holds only data that can be rebuilt or thrown away:
